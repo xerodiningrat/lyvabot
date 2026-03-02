@@ -1,0 +1,20 @@
+﻿{
+  "name": "roblox-review-discord-bot",
+  "version": "0.1.0",
+  "description": "Discord bot for Roblox-focused code review workflow",
+  "main": "src/index.js",
+  "type": "commonjs",
+  "scripts": {
+    "start": "node src/index.js",
+    "deploy": "node src/deploy-commands.js",
+    "deploy:guild": "node src/deploy-commands.js",
+    "deploy:global": "set DEPLOY_TARGET=global&& node src/deploy-commands.js"
+  },
+  "engines": {
+    "node": ">=18.17.0"
+  },
+  "dependencies": {
+    "discord.js": "^14.16.3",
+    "dotenv": "^16.4.7"
+  }
+}

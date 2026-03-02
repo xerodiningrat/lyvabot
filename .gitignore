@@ -1,0 +1,4 @@
+﻿node_modules/
+.env
+bot-runtime.log
+data/*.json
