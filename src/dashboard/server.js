@@ -520,6 +520,8 @@ function buildPage({ appName, authed }) {
 
   <script>
     const isAuthed = ${authed ? "true" : "false"};
+    const dashboardMaxUploadFiles = ${MAX_UPLOAD_FILES};
+    const dashboardMaxUploadBytesPerFile = ${MAX_UPLOAD_BYTES_PER_FILE};
     const loginView = document.getElementById("loginView");
     const appView = document.getElementById("appView");
     const statsGrid = document.getElementById("statsGrid");
@@ -647,35 +649,73 @@ function buildPage({ appName, authed }) {
     }
 
     async function uploadSelectedFiles() {
-      const list = assetFilesInput?.files ? Array.from(assetFilesInput.files) : [];
+      const allSelected = assetFilesInput?.files ? Array.from(assetFilesInput.files) : [];
+      const list = allSelected.slice(0, dashboardMaxUploadFiles);
       if (list.length === 0) {
         uploadLog("Pilih file dulu.");
         return;
       }
 
-      uploadLog("Membaca " + list.length + " file...");
-      try {
-        const payloadFiles = [];
-        for (const file of list) {
-          const contentBase64 = await fileToBase64(file);
-          payloadFiles.push({ name: file.name, contentBase64 });
-        }
-
-        const res = await api("/api/assets/upload", {
-          method: "POST",
-          body: { files: payloadFiles },
-        });
-
-        uploadLog("Upload selesai. Berhasil: " + res.success.length + ", gagal: " + res.failed.length);
-        if (res.failed.length > 0) {
-          uploadLog("Detail gagal: " + res.failed.map((f) => f.name + " (" + f.reason + ")").join(", "));
-        }
-        if (assetFilesInput) assetFilesInput.value = "";
-        await refreshAssetList();
-        await refreshSummary();
-      } catch (error) {
-        uploadLog("Upload gagal: " + error.message);
+      if (allSelected.length > dashboardMaxUploadFiles) {
+        uploadLog(
+          "File dipilih " +
+            allSelected.length +
+            ", diproses " +
+            dashboardMaxUploadFiles +
+            " pertama sesuai limit dashboard.",
+        );
       }
+
+      uploadLog("Mulai upload " + list.length + " file (mode sequential)...");
+      let successCount = 0;
+      let failedCount = 0;
+
+      for (let i = 0; i < list.length; i += 1) {
+        const file = list[i];
+        try {
+          if (Number(file.size || 0) > dashboardMaxUploadBytesPerFile) {
+            failedCount += 1;
+            uploadLog(
+              "[" +
+                (i + 1) +
+                "/" +
+                list.length +
+                "] " +
+                file.name +
+                " gagal: ukuran > " +
+                Math.floor(dashboardMaxUploadBytesPerFile / (1024 * 1024)) +
+                "MB.",
+            );
+            continue;
+          }
+
+          const contentBase64 = await fileToBase64(file);
+          const res = await api("/api/assets/upload", {
+            method: "POST",
+            body: { files: [{ name: file.name, contentBase64 }] },
+          });
+
+          const oneSuccess = Array.isArray(res.success) ? res.success.length : 0;
+          const oneFailed = Array.isArray(res.failed) ? res.failed.length : 0;
+          successCount += oneSuccess;
+          failedCount += oneFailed;
+
+          if (oneSuccess > 0) {
+            uploadLog("[" + (i + 1) + "/" + list.length + "] " + file.name + " berhasil.");
+          } else {
+            const reason = oneFailed > 0 ? res.failed[0]?.reason || "unknown error" : "unknown error";
+            uploadLog("[" + (i + 1) + "/" + list.length + "] " + file.name + " gagal: " + reason);
+          }
+        } catch (error) {
+          failedCount += 1;
+          uploadLog("[" + (i + 1) + "/" + list.length + "] " + file.name + " gagal: " + error.message);
+        }
+      }
+
+      uploadLog("Upload selesai. Berhasil: " + successCount + ", gagal: " + failedCount + ".");
+      if (assetFilesInput) assetFilesInput.value = "";
+      await refreshAssetList();
+      await refreshSummary();
     }
 
     async function refreshSummary() {

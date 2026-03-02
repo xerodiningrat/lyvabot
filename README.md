@@ -105,6 +105,10 @@ Bot ini punya dashboard web built-in untuk:
 - lihat list asset terbaru langsung di dashboard
 - trigger update app dari GitHub langsung dari dashboard (opsional, jika diaktifkan)
 
+Catatan upload dashboard:
+- Upload multi-file diproses satu per satu (lebih stabil untuk file banyak).
+- Jika sering gagal karena ukuran request, naikkan `client_max_body_size` di Nginx (contoh `50M`).
+
 Aktifkan dengan env:
 
 ```env
