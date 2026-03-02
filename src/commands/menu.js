@@ -97,7 +97,10 @@ function buildPanel() {
 }
 
 async function execute(interaction) {
-  await interaction.reply(buildPanel());
+  await interaction.reply({
+    ...buildPanel(),
+    flags: MessageFlags.Ephemeral,
+  });
 }
 
 function getButtonContent(customId) {

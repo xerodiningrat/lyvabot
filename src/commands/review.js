@@ -11,6 +11,7 @@ const {
   validatePatchSafety,
 } = require("../review/ai");
 const { checkAIBudget, recordAIUsage } = require("../review/ai-usage");
+const PRIVATE_ONLY_MODE = process.env.PRIVATE_ONLY_MODE !== "false";
 
 const DEFAULT_PROMO_MESSAGE = [
   "========== PROMO SPESIAL LYVA INDONESIA ==========",
@@ -332,26 +333,9 @@ async function runPaste(interaction) {
 
   await interaction.deferReply({ flags: MessageFlags.Ephemeral });
 
-  const destination = await resolveDestinationThread(interaction, filename);
-  if (!destination.thread) {
-    await interaction.editReply(withPromo(destination.error));
-    return;
-  }
-
-  const thread = destination.thread;
-
   const codeBlocks = formatCodeForDiscord(fullCode, "lua");
   const fullLines = fullCode.split("\n");
   const previewTruncated = fullLines.length > 30 || fullLines.some((line) => line.length > 180);
-  await thread.send(withPromo(`**Code Submission**\nFile: \`${filename}\`\nRequested by: <@${interaction.user.id}>`));
-
-  for (const block of codeBlocks) {
-    await thread.send(block);
-  }
-
-  if (previewTruncated) {
-    await thread.send("Catatan: preview code dipotong untuk tampilan Discord, tapi rule analysis tetap pakai full code input.");
-  }
 
   const analysis = analyzeCode(fullCode, filename, {
     pack,
@@ -372,6 +356,68 @@ async function runPaste(interaction) {
     historySummary = history.summary;
   } catch (historyError) {
     console.error("Failed to write finding history", historyError);
+  }
+
+  if (PRIVATE_ONLY_MODE) {
+    await interaction.editReply(
+      withPromo(
+        [
+          "**Review Private Mode**",
+          `File: \`${filename}\``,
+          "Hasil review hanya terlihat oleh kamu.",
+        ].join("\n"),
+      ),
+    );
+
+    for (const block of codeBlocks) {
+      await interaction.followUp({
+        flags: MessageFlags.Ephemeral,
+        content: block,
+      });
+    }
+
+    if (previewTruncated) {
+      await interaction.followUp({
+        flags: MessageFlags.Ephemeral,
+        content: "Catatan: preview code dipotong untuk tampilan, tapi rule analysis tetap pakai full code input.",
+      });
+    }
+
+    const sections = [
+      formatSignalScan(analysis.meta.signals),
+      buildChecklistMessage(findings, analysis.facts),
+      formatFindings(findings, analysis.meta),
+      ...(historySummary ? [historySummary] : []),
+      buildFeedbackTemplate(findings),
+    ];
+
+    for (const section of sections) {
+      const chunks = splitLongMessage(section, 1800);
+      for (const chunk of chunks) {
+        await interaction.followUp({
+          flags: MessageFlags.Ephemeral,
+          content: chunk,
+        });
+      }
+    }
+    return;
+  }
+
+  const destination = await resolveDestinationThread(interaction, filename);
+  if (!destination.thread) {
+    await interaction.editReply(withPromo(destination.error));
+    return;
+  }
+
+  const thread = destination.thread;
+  await thread.send(withPromo(`**Code Submission**\nFile: \`${filename}\`\nRequested by: <@${interaction.user.id}>`));
+
+  for (const block of codeBlocks) {
+    await thread.send(block);
+  }
+
+  if (previewTruncated) {
+    await thread.send("Catatan: preview code dipotong untuk tampilan Discord, tapi rule analysis tetap pakai full code input.");
   }
 
   await thread.send(formatSignalScan(analysis.meta.signals));

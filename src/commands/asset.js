@@ -18,6 +18,7 @@ const DEFAULT_PROMO_MESSAGE = [
   "BELI SEKARANG: https://lyvaindonesia.com/",
   "==================================================",
 ].join("\n");
+const PRIVATE_ONLY_MODE = process.env.PRIVATE_ONLY_MODE !== "false";
 
 function getPromoMessage() {
   const value = String(process.env.PROMO_MESSAGE || "").trim();
@@ -61,6 +62,9 @@ function formatMobileListMessage(items) {
 }
 
 async function sendPublicResult(interaction, payload) {
+  if (PRIVATE_ONLY_MODE) {
+    return false;
+  }
   const channel = interaction.channel;
   if (channel && typeof channel.send === "function") {
     await channel.send(payload);
