@@ -51,6 +51,7 @@ copy .env.example .env
 - `DASHBOARD_REPO_BRANCH` (default `main`)
 - `DASHBOARD_APP_DIR` (default folder kerja app saat self-update, contoh `/root/lyvabot`)
 - `DASHBOARD_SELF_UPDATE_LOG_PATH` (lokasi file log proses self-update)
+- `ASSET_DUPLICATE_POLICY` (default `replace`, file dengan nama sama akan hapus file lama lalu simpan yang baru)
 
 4. Deploy slash command ke guild test
 
@@ -108,6 +109,8 @@ Bot ini punya dashboard web built-in untuk:
 Catatan upload dashboard:
 - Upload multi-file diproses satu per satu (lebih stabil untuk file banyak).
 - Jika sering gagal karena ukuran request, naikkan `client_max_body_size` di Nginx (contoh `50M`).
+- Jika nama file duplikat, file lama otomatis dihapus (policy `replace`) dan dicatat di log `data/asset-dedupe.log`.
+- Duplikat kini dihitung secara "canonical" (contoh `inventory_nih_woii.rbxm` dan `inventory-nih-woii.rbxm` dianggap sama untuk ekstensi yang sama).
 
 Aktifkan dengan env:
 

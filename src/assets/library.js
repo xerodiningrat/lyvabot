@@ -3,6 +3,8 @@ const path = require("path");
 
 const ASSETS_DIR = path.join(process.cwd(), "assets", "free");
 const ALLOWED_EXTENSIONS = new Set([".rbxm", ".rbxmx", ".lua", ".luau", ".txt"]);
+const ASSET_DUPLICATE_POLICY = String(process.env.ASSET_DUPLICATE_POLICY || "replace").trim().toLowerCase();
+const ASSET_DEDUPE_LOG_PATH = path.join(process.cwd(), "data", "asset-dedupe.log");
 
 function normalizeName(value) {
   return String(value || "")
@@ -17,6 +19,12 @@ function sanitizeBaseName(value) {
     .replace(/\s+/g, "-")
     .replace(/-+/g, "-")
     .replace(/^-|-$/g, "");
+}
+
+function toDuplicateKey(baseName) {
+  return sanitizeBaseName(baseName)
+    .toLowerCase()
+    .replace(/[-_]+/g, "");
 }
 
 function toAssetType(ext) {
@@ -34,6 +42,13 @@ function formatBytes(bytes) {
 
 async function ensureAssetsDir() {
   await fs.mkdir(ASSETS_DIR, { recursive: true });
+}
+
+async function appendDedupeLog({ deletedFileName, oldSizeBytes = 0, newSourceName = "", policy = "replace" }) {
+  const stamp = new Date().toISOString();
+  const line = `[${stamp}] delete-duplicate policy=${policy} removed="${deletedFileName}" oldSize=${formatBytes(oldSizeBytes)} newSource="${newSourceName}"`;
+  await fs.mkdir(path.dirname(ASSET_DEDUPE_LOG_PATH), { recursive: true });
+  await fs.appendFile(ASSET_DEDUPE_LOG_PATH, `${line}\n`, "utf8");
 }
 
 function buildAssetRecord(fileName, stats) {
@@ -151,10 +166,6 @@ async function saveAssetFromUrl({ url, sourceName, customName }) {
     throw new Error("URL file tidak valid.");
   }
 
-  await ensureAssetsDir();
-  const desiredName = buildTargetFileName(sourceName, customName);
-  const fileName = await getAvailableName(desiredName);
-
   const response = await fetch(url);
   if (!response.ok) {
     throw new Error("Gagal download file asset dari attachment.");
@@ -164,22 +175,74 @@ async function saveAssetFromUrl({ url, sourceName, customName }) {
   return saveAssetBuffer({ sourceName, customName, buffer });
 }
 
-async function saveAssetBuffer({ sourceName, customName, buffer }) {
+async function saveAssetBuffer({ sourceName, customName, buffer, duplicatePolicy = ASSET_DUPLICATE_POLICY }) {
   if (!buffer) {
     throw new Error("Buffer file tidak valid.");
   }
 
   await ensureAssetsDir();
   const desiredName = buildTargetFileName(sourceName, customName);
-  const fileName = await getAvailableName(desiredName);
+  let fileName = desiredName;
+  const deletedExistingList = [];
+  const policy = String(duplicatePolicy || "replace").toLowerCase();
+
+  if (policy === "replace") {
+    const desiredExt = path.extname(desiredName).toLowerCase();
+    const desiredBase = path.basename(desiredName, desiredExt);
+    const desiredKey = toDuplicateKey(desiredBase);
+
+    const entries = await fs.readdir(ASSETS_DIR, { withFileTypes: true });
+    for (const entry of entries) {
+      if (!entry.isFile()) continue;
+      const existingName = entry.name;
+      const existingExt = path.extname(existingName).toLowerCase();
+      if (existingExt !== desiredExt) continue;
+      if (!ALLOWED_EXTENSIONS.has(existingExt)) continue;
+
+      const existingBase = path.basename(existingName, existingExt);
+      if (toDuplicateKey(existingBase) !== desiredKey) continue;
+
+      const existingPath = path.join(ASSETS_DIR, existingName);
+      try {
+        const stats = await fs.stat(existingPath);
+        await fs.unlink(existingPath);
+        const deletedItem = {
+          fileName: existingName,
+          sizeBytes: Number(stats.size || 0),
+          sizeLabel: formatBytes(stats.size || 0),
+        };
+        deletedExistingList.push(deletedItem);
+        await appendDedupeLog({
+          deletedFileName: existingName,
+          oldSizeBytes: deletedItem.sizeBytes,
+          newSourceName: sourceName,
+          policy,
+        });
+      } catch (error) {
+        if (error?.code !== "ENOENT") {
+          throw error;
+        }
+      }
+    }
+  } else {
+    fileName = await getAvailableName(desiredName);
+  }
+
   const fullPath = path.join(ASSETS_DIR, fileName);
   await fs.writeFile(fullPath, buffer);
   const stats = await fs.stat(fullPath);
-  return buildAssetRecord(fileName, stats);
+  const record = buildAssetRecord(fileName, stats);
+  return {
+    ...record,
+    duplicatePolicyApplied: policy,
+    deletedExisting: deletedExistingList[0] || null,
+    deletedExistingList,
+  };
 }
 
 module.exports = {
   ASSETS_DIR,
+  ASSET_DEDUPE_LOG_PATH,
   ALLOWED_EXTENSIONS,
   listAssets,
   resolveAssetByQuery,

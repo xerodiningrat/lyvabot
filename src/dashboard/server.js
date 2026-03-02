@@ -4,7 +4,7 @@ const fs = require("fs/promises");
 const path = require("path");
 const { spawn } = require("child_process");
 const { Routes } = require("discord.js");
-const { listAssets, saveAssetBuffer } = require("../assets/library");
+const { listAssets, saveAssetBuffer, ASSET_DEDUPE_LOG_PATH } = require("../assets/library");
 const { listMobileAssets } = require("../assets/mobile-library");
 
 const SESSION_COOKIE = "lyva_dash_session";
@@ -100,6 +100,16 @@ async function appendSelfUpdateLog(message) {
 async function readSelfUpdateLogTail(maxLines = 120) {
   try {
     const raw = await fs.readFile(SELF_UPDATE_LOG_PATH, "utf8");
+    const lines = raw.split(/\r?\n/).filter(Boolean);
+    return lines.slice(Math.max(0, lines.length - maxLines)).join("\n");
+  } catch {
+    return "";
+  }
+}
+
+async function readAssetDedupeLogTail(maxLines = 120) {
+  try {
+    const raw = await fs.readFile(ASSET_DEDUPE_LOG_PATH, "utf8");
     const lines = raw.split(/\r?\n/).filter(Boolean);
     return lines.slice(Math.max(0, lines.length - maxLines)).join("\n");
   } catch {
@@ -507,6 +517,7 @@ function buildPage({ appName, authed }) {
                 <div class="row">
                   <button id="btnUploadFiles">Upload Semua File Terpilih</button>
                   <button id="btnReloadAssets" class="secondary">Refresh List Asset</button>
+                  <button id="btnDedupeLog" class="secondary">Log Hapus Duplikat</button>
                 </div>
                 <div id="uploadLog" class="log"></div>
                 <div id="assetList" class="asset-list"></div>
@@ -701,7 +712,28 @@ function buildPage({ appName, authed }) {
           failedCount += oneFailed;
 
           if (oneSuccess > 0) {
-            uploadLog("[" + (i + 1) + "/" + list.length + "] " + file.name + " berhasil.");
+            const firstSuccess = res.success[0] || {};
+            const deletedList = Array.isArray(firstSuccess.deletedExistingList)
+              ? firstSuccess.deletedExistingList
+              : firstSuccess.deletedExisting
+                ? [firstSuccess.deletedExisting]
+                : [];
+            if (deletedList.length > 0) {
+              const deletedNames = deletedList.map((item) => item.fileName).join(", ");
+              uploadLog(
+                "[" +
+                  (i + 1) +
+                  "/" +
+                  list.length +
+                  "] " +
+                  file.name +
+                  " replace duplicate: hapus " +
+                  deletedNames +
+                  ", lalu simpan baru.",
+              );
+            } else {
+              uploadLog("[" + (i + 1) + "/" + list.length + "] " + file.name + " berhasil.");
+            }
           } else {
             const reason = oneFailed > 0 ? res.failed[0]?.reason || "unknown error" : "unknown error";
             uploadLog("[" + (i + 1) + "/" + list.length + "] " + file.name + " gagal: " + reason);
@@ -716,6 +748,20 @@ function buildPage({ appName, authed }) {
       if (assetFilesInput) assetFilesInput.value = "";
       await refreshAssetList();
       await refreshSummary();
+    }
+
+    async function loadDedupeLog() {
+      try {
+        const data = await api("/api/assets/dedupe-log");
+        const tail = String(data.tail || "").trim();
+        if (!tail) {
+          uploadLog("Belum ada log hapus duplikat.");
+          return;
+        }
+        uploadLog("Log hapus duplikat terbaru:\\n" + tail);
+      } catch (error) {
+        uploadLog("Gagal ambil log duplikat: " + error.message);
+      }
     }
 
     async function refreshSummary() {
@@ -864,6 +910,7 @@ function buildPage({ appName, authed }) {
     document.getElementById("btnSelfUpdateLog")?.addEventListener("click", loadSelfUpdateLog);
     document.getElementById("btnUploadFiles")?.addEventListener("click", uploadSelectedFiles);
     document.getElementById("btnReloadAssets")?.addEventListener("click", refreshAssetList);
+    document.getElementById("btnDedupeLog")?.addEventListener("click", loadDedupeLog);
     document.getElementById("password")?.addEventListener("keydown", (e) => {
       if (e.key === "Enter") doLogin();
     });
@@ -1008,6 +1055,8 @@ async function uploadDashboardAssets(filePayloads) {
         fileName: saved.fileName,
         type: saved.type,
         sizeLabel: saved.sizeLabel,
+        deletedExisting: saved.deletedExisting || null,
+        deletedExistingList: Array.isArray(saved.deletedExistingList) ? saved.deletedExistingList : [],
       });
     } catch (error) {
       failed.push({
@@ -1093,6 +1142,12 @@ function startDashboard({ client, rest, clientId, getCommandsBody, syncGuildComm
       if (method === "GET" && url.pathname === "/api/assets/list") {
         const items = await listAssets();
         sendJson(res, 200, { ok: true, items });
+        return;
+      }
+
+      if (method === "GET" && url.pathname === "/api/assets/dedupe-log") {
+        const tail = await readAssetDedupeLogTail(120);
+        sendJson(res, 200, { ok: true, tail });
         return;
       }
 
