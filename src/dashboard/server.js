@@ -18,6 +18,9 @@ const SELF_UPDATE_APP_DIR = String(process.env.DASHBOARD_APP_DIR || process.cwd(
 const SELF_UPDATE_LOG_PATH = String(
   process.env.DASHBOARD_SELF_UPDATE_LOG_PATH || path.join(process.cwd(), "data", "dashboard-self-update.log"),
 ).trim();
+const MEMBER_PAGE_TITLE = String(process.env.MEMBER_PAGE_TITLE || "LYVA Member Hub").trim();
+const MEMBER_DISCORD_URL = String(process.env.MEMBER_DISCORD_URL || "").trim();
+const MEMBER_PROMO_URL = String(process.env.MEMBER_PROMO_URL || "https://lyvaindonesia.com").trim();
 
 function toInt(value, fallback) {
   const n = Number(value);
@@ -1010,6 +1013,198 @@ function buildPage({ appName, authed }) {
 </html>`;
 }
 
+function buildMemberPage({ title = MEMBER_PAGE_TITLE, promoUrl = MEMBER_PROMO_URL, discordUrl = MEMBER_DISCORD_URL }) {
+  const safeTitle = sanitizeText(title || "LYVA Member Hub");
+  const safePromo = sanitizeText(promoUrl || "#");
+  const safeDiscord = sanitizeText(discordUrl || "#");
+  const hasDiscord = Boolean(discordUrl);
+
+  return `<!doctype html>
+<html lang="id">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>${safeTitle}</title>
+  <style>
+    @import url("https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&display=swap");
+    :root {
+      --bg: #0b1220;
+      --bg-soft: #131e37;
+      --panel: #172440;
+      --line: #2b3f6f;
+      --text: #e9f0ff;
+      --muted: #94abd8;
+      --brand: #22c55e;
+      --brand2: #38bdf8;
+      --accent: #a78bfa;
+    }
+    * { box-sizing: border-box; margin: 0; }
+    body {
+      font-family: "Nunito", "Segoe UI", sans-serif;
+      color: var(--text);
+      background:
+        radial-gradient(900px 500px at 5% -15%, #2f4a84 0%, transparent 60%),
+        radial-gradient(900px 500px at 100% 0%, #1c476f 0%, transparent 55%),
+        var(--bg);
+      min-height: 100vh;
+      padding: 22px;
+    }
+    .wrap { max-width: 1200px; margin: 0 auto; display: grid; gap: 14px; }
+    .panel {
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      background: linear-gradient(180deg, #162540 0%, #17213b 100%);
+      box-shadow: 0 14px 34px rgba(0,0,0,.22);
+    }
+    .hero { padding: 20px; display: grid; gap: 10px; }
+    .title { font-size: 34px; font-weight: 900; letter-spacing: .2px; }
+    .sub { color: var(--muted); font-size: 15px; line-height: 1.55; }
+    .row { display: flex; gap: 9px; flex-wrap: wrap; }
+    a.btn, button.btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      border: 0;
+      border-radius: 11px;
+      padding: 11px 14px;
+      color: #091120;
+      text-decoration: none;
+      font-weight: 800;
+      cursor: pointer;
+      background: var(--brand);
+    }
+    a.btn.secondary, button.btn.secondary { background: var(--brand2); }
+    a.btn.alt, button.btn.alt { background: var(--accent); }
+    .grid { display: grid; grid-template-columns: repeat(4, minmax(0,1fr)); gap: 10px; }
+    .stat { padding: 12px; border: 1px solid var(--line); border-radius: 12px; background: var(--bg-soft); }
+    .stat .k { color: var(--muted); font-size: 12px; font-weight: 700; }
+    .stat .v { font-size: 25px; font-weight: 900; margin-top: 5px; }
+    .features { padding: 14px; display: grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap: 10px; }
+    .feature { border: 1px solid var(--line); border-radius: 12px; padding: 12px; background: #111d35; }
+    .feature h3 { font-size: 14px; margin-bottom: 6px; }
+    .feature p { color: var(--muted); font-size: 13px; line-height: 1.45; }
+    .catalog { padding: 14px; display: grid; gap: 10px; }
+    .search { width: 100%; padding: 11px 12px; border-radius: 10px; border: 1px solid var(--line); background: #0f1a31; color: var(--text); }
+    .cols { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .list-box { border: 1px solid var(--line); border-radius: 12px; background: #101c34; min-height: 220px; padding: 10px; }
+    .list-box h4 { margin-bottom: 9px; font-size: 14px; }
+    .item-list { display: grid; gap: 8px; max-height: 420px; overflow: auto; }
+    .item { border: 1px solid #2c4270; border-radius: 10px; padding: 9px; background: #0f1a30; }
+    .item .name { font-size: 13px; font-weight: 800; }
+    .item .meta { margin-top: 3px; color: var(--muted); font-size: 12px; }
+    .empty { color: var(--muted); font-size: 13px; }
+    @media (max-width: 960px) {
+      .grid { grid-template-columns: repeat(2, minmax(0,1fr)); }
+      .features { grid-template-columns: 1fr; }
+      .cols { grid-template-columns: 1fr; }
+    }
+    @media (max-width: 560px) {
+      .grid { grid-template-columns: 1fr; }
+      .title { font-size: 28px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <section class="panel hero">
+      <div class="title">${safeTitle}</div>
+      <div class="sub">Portal member LYVA untuk lihat semua fitur bot, free asset Roblox, Studio Lite ID, dan panduan review script.</div>
+      <div class="row">
+        <a class="btn" href="${safePromo}" target="_blank" rel="noreferrer">Website LYVA</a>
+        ${hasDiscord ? `<a class="btn secondary" href="${safeDiscord}" target="_blank" rel="noreferrer">Join Discord</a>` : ""}
+        <a class="btn alt" href="/dashboard">Admin Dashboard</a>
+      </div>
+      <div class="grid" id="statGrid"></div>
+    </section>
+
+    <section class="panel features">
+      <div class="feature">
+        <h3>Review Script Roblox</h3>
+        <p>Gunakan command Discord: <code>/review paste</code> atau <code>/review ai</code> untuk analisis script dan patch suggestion.</p>
+      </div>
+      <div class="feature">
+        <h3>Free Asset File</h3>
+        <p>Lihat semua asset gratis, model/script, dan ambil file dari bot via command asset di Discord.</p>
+      </div>
+      <div class="feature">
+        <h3>Studio Lite ID</h3>
+        <p>Daftar ID + nama fitur untuk kebutuhan mobile/studio lite langsung dari satu tempat.</p>
+      </div>
+    </section>
+
+    <section class="panel catalog">
+      <input id="searchInput" class="search" placeholder="Cari asset / id / fitur..." />
+      <div class="cols">
+        <div class="list-box">
+          <h4>Daftar Free Asset Script/Model</h4>
+          <div id="assetList" class="item-list"></div>
+        </div>
+        <div class="list-box">
+          <h4>Daftar Studio Lite ID</h4>
+          <div id="mobileList" class="item-list"></div>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <script>
+    const statGrid = document.getElementById("statGrid");
+    const assetList = document.getElementById("assetList");
+    const mobileList = document.getElementById("mobileList");
+    const searchInput = document.getElementById("searchInput");
+
+    let state = { assets: [], mobile: [], summary: {} };
+
+    function stat(label, value) {
+      const el = document.createElement("div");
+      el.className = "stat";
+      el.innerHTML = '<div class="k">' + label + '</div><div class="v">' + value + "</div>";
+      return el;
+    }
+
+    function renderStats() {
+      statGrid.innerHTML = "";
+      statGrid.appendChild(stat("Total Asset File", String(state.summary.fileCount || 0)));
+      statGrid.appendChild(stat("Total Mobile ID", String(state.summary.mobileCount || 0)));
+      statGrid.appendChild(stat("Studio Lite ID", String(state.summary.studioLiteCount || 0)));
+      statGrid.appendChild(stat("Bot Command", String(state.summary.commandHint || "/review /asset")));
+    }
+
+    function renderList() {
+      const q = String(searchInput.value || "").trim().toLowerCase();
+      const assets = state.assets.filter((a) => !q || (a.fileName + " " + a.type + " " + a.id).toLowerCase().includes(q));
+      const mobile = state.mobile.filter((m) => !q || (m.name + " " + m.id + " " + m.kind + " " + m.key).toLowerCase().includes(q));
+
+      assetList.innerHTML = assets.length
+        ? assets.map((a) => '<div class="item"><div class="name">' + a.fileName + '</div><div class="meta">type: ' + a.type + ' | size: ' + a.sizeLabel + " | key: " + a.id + "</div></div>").join("")
+        : '<div class="empty">Belum ada data asset.</div>';
+
+      mobileList.innerHTML = mobile.length
+        ? mobile.map((m) => '<div class="item"><div class="name">' + m.name + '</div><div class="meta">id: ' + m.id + " | kind: " + m.kind + " | key: " + m.key + "</div></div>").join("")
+        : '<div class="empty">Belum ada data Studio Lite ID.</div>';
+    }
+
+    async function loadCatalog() {
+      const res = await fetch("/api/public/catalog");
+      const data = await res.json();
+      state.assets = Array.isArray(data.assets) ? data.assets : [];
+      state.mobile = Array.isArray(data.mobile) ? data.mobile : [];
+      state.summary = data.summary || {};
+      renderStats();
+      renderList();
+    }
+
+    searchInput.addEventListener("input", renderList);
+    loadCatalog().catch(() => {
+      assetList.innerHTML = '<div class="empty">Gagal load catalog.</div>';
+      mobileList.innerHTML = '<div class="empty">Gagal load catalog.</div>';
+    });
+  </script>
+</body>
+</html>`;
+}
+
 async function readJsonFileSafe(filePath, fallback) {
   try {
     const raw = await fs.readFile(filePath, "utf8");
@@ -1185,8 +1380,39 @@ function startDashboard({ client, rest, clientId, getCommandsBody, syncGuildComm
       const url = new URL(req.url || "/", "http://localhost");
       const authed = isAuthed(req, sessions);
 
-      if (method === "GET" && url.pathname === "/") {
+      if (method === "GET" && (url.pathname === "/" || url.pathname === "/member")) {
+        sendHtml(
+          res,
+          200,
+          buildMemberPage({
+            title: MEMBER_PAGE_TITLE,
+            promoUrl: MEMBER_PROMO_URL,
+            discordUrl: MEMBER_DISCORD_URL,
+          }),
+        );
+        return;
+      }
+
+      if (method === "GET" && url.pathname === "/dashboard") {
         sendHtml(res, 200, buildPage({ appName, authed }));
+        return;
+      }
+
+      if (method === "GET" && url.pathname === "/api/public/catalog") {
+        const assets = await listAssets().catch(() => []);
+        const mobile = await listMobileAssets().catch(() => []);
+        const studioLiteCount = mobile.filter((item) => String(item.kind || "").toLowerCase() === "studio-lite").length;
+        sendJson(res, 200, {
+          ok: true,
+          assets,
+          mobile,
+          summary: {
+            fileCount: assets.length,
+            mobileCount: mobile.length,
+            studioLiteCount,
+            commandHint: "/review /asset",
+          },
+        });
         return;
       }
 

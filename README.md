@@ -51,6 +51,9 @@ copy .env.example .env
 - `DASHBOARD_REPO_BRANCH` (default `main`)
 - `DASHBOARD_APP_DIR` (default folder kerja app saat self-update, contoh `/root/lyvabot`)
 - `DASHBOARD_SELF_UPDATE_LOG_PATH` (lokasi file log proses self-update)
+- `MEMBER_PAGE_TITLE` (judul halaman member/public)
+- `MEMBER_DISCORD_URL` (opsional, tombol Join Discord di halaman member)
+- `MEMBER_PROMO_URL` (URL tombol website/promo di halaman member)
 - `ASSET_DUPLICATE_POLICY` (default `replace`, file dengan nama sama akan hapus file lama lalu simpan yang baru)
 
 4. Deploy slash command ke guild test
@@ -128,6 +131,10 @@ Lalu restart bot, dan cek di VPS:
 ```bash
 curl http://127.0.0.1:3001
 ```
+
+Route web:
+- `/` atau `/member` = halaman member/public (fitur, free asset, studio lite id)
+- `/dashboard` = halaman admin dashboard (login)
 
 Untuk akses publik via domain + Nginx:
 
