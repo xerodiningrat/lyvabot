@@ -44,6 +44,13 @@ copy .env.example .env
 - `DASHBOARD_PORT` (default `3001`)
 - `DASHBOARD_TITLE` (judul halaman dashboard)
 - `DASHBOARD_USERNAME` dan `DASHBOARD_PASSWORD` (login dashboard)
+- `DASHBOARD_MAX_UPLOAD_FILES` (default `10`, batas upload file sekali kirim via dashboard)
+- `DASHBOARD_MAX_UPLOAD_BYTES_PER_FILE` (default `15728640` = 15MB per file)
+- `DASHBOARD_MAX_JSON_BYTES` (default `36700160` = 35MB total payload upload)
+- `DASHBOARD_ALLOW_SELF_UPDATE` (default `false`, aktifkan tombol update otomatis dari dashboard)
+- `DASHBOARD_REPO_BRANCH` (default `main`)
+- `DASHBOARD_APP_DIR` (default folder kerja app saat self-update, contoh `/root/lyvabot`)
+- `DASHBOARD_SELF_UPDATE_LOG_PATH` (lokasi file log proses self-update)
 
 4. Deploy slash command ke guild test
 
@@ -94,6 +101,9 @@ Bot ini punya dashboard web built-in untuk:
 - melihat statistik AI usage, asset count, dan review history
 - sync command ke semua guild / 1 guild
 - clear global commands
+- upload free asset langsung dari dashboard (multi-file sekaligus)
+- lihat list asset terbaru langsung di dashboard
+- trigger update app dari GitHub langsung dari dashboard (opsional, jika diaktifkan)
 
 Aktifkan dengan env:
 

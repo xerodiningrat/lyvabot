@@ -2,12 +2,22 @@ const http = require("http");
 const crypto = require("crypto");
 const fs = require("fs/promises");
 const path = require("path");
+const { spawn } = require("child_process");
 const { Routes } = require("discord.js");
-const { listAssets } = require("../assets/library");
+const { listAssets, saveAssetBuffer } = require("../assets/library");
 const { listMobileAssets } = require("../assets/mobile-library");
 
 const SESSION_COOKIE = "lyva_dash_session";
 const SESSION_TTL_MS = 1000 * 60 * 60 * 24;
+const MAX_JSON_BYTES = toInt(process.env.DASHBOARD_MAX_JSON_BYTES, 35 * 1024 * 1024);
+const MAX_UPLOAD_FILES = toInt(process.env.DASHBOARD_MAX_UPLOAD_FILES, 10);
+const MAX_UPLOAD_BYTES_PER_FILE = toInt(process.env.DASHBOARD_MAX_UPLOAD_BYTES_PER_FILE, 15 * 1024 * 1024);
+const SELF_UPDATE_ENABLED = process.env.DASHBOARD_ALLOW_SELF_UPDATE === "true";
+const SELF_UPDATE_BRANCH = String(process.env.DASHBOARD_REPO_BRANCH || "main").trim();
+const SELF_UPDATE_APP_DIR = String(process.env.DASHBOARD_APP_DIR || process.cwd()).trim();
+const SELF_UPDATE_LOG_PATH = String(
+  process.env.DASHBOARD_SELF_UPDATE_LOG_PATH || path.join(process.cwd(), "data", "dashboard-self-update.log"),
+).trim();
 
 function toInt(value, fallback) {
   const n = Number(value);
@@ -31,10 +41,19 @@ function readCookies(cookieHeader = "") {
   return cookies;
 }
 
-function readJsonBody(req) {
+function readJsonBody(req, maxBytes = MAX_JSON_BYTES) {
   return new Promise((resolve, reject) => {
+    let size = 0;
     const chunks = [];
-    req.on("data", (chunk) => chunks.push(chunk));
+    req.on("data", (chunk) => {
+      size += chunk.length;
+      if (size > maxBytes) {
+        req.destroy();
+        reject(new Error(`Payload terlalu besar. Maks ${Math.floor(maxBytes / (1024 * 1024))} MB.`));
+        return;
+      }
+      chunks.push(chunk);
+    });
     req.on("end", () => {
       try {
         const text = Buffer.concat(chunks).toString("utf8");
@@ -59,6 +78,75 @@ function sendJson(res, status, payload) {
 function sendHtml(res, status, html) {
   res.writeHead(status, { "Content-Type": "text/html; charset=utf-8" });
   res.end(html);
+}
+
+function safeSingleQuote(value) {
+  return String(value || "").replace(/'/g, "'\\''");
+}
+
+async function ensureParentDir(filePath) {
+  await fs.mkdir(path.dirname(filePath), { recursive: true });
+}
+
+function isSafeBranchName(branch) {
+  return /^[A-Za-z0-9._/-]+$/.test(branch);
+}
+
+async function appendSelfUpdateLog(message) {
+  await ensureParentDir(SELF_UPDATE_LOG_PATH);
+  await fs.appendFile(SELF_UPDATE_LOG_PATH, `${message}\n`, "utf8");
+}
+
+async function readSelfUpdateLogTail(maxLines = 120) {
+  try {
+    const raw = await fs.readFile(SELF_UPDATE_LOG_PATH, "utf8");
+    const lines = raw.split(/\r?\n/).filter(Boolean);
+    return lines.slice(Math.max(0, lines.length - maxLines)).join("\n");
+  } catch {
+    return "";
+  }
+}
+
+async function triggerSelfUpdate() {
+  if (!SELF_UPDATE_ENABLED) {
+    throw new Error("Self update belum diaktifkan. Set DASHBOARD_ALLOW_SELF_UPDATE=true.");
+  }
+  if (!isSafeBranchName(SELF_UPDATE_BRANCH)) {
+    throw new Error("DASHBOARD_REPO_BRANCH tidak valid.");
+  }
+
+  const startedAt = new Date().toISOString();
+  await appendSelfUpdateLog(`[${startedAt}] self-update requested via dashboard`);
+
+  const script = `#!/usr/bin/env bash
+set -e
+{
+  echo "[${startedAt}] start update"
+  cd '${safeSingleQuote(SELF_UPDATE_APP_DIR)}'
+  git pull --ff-only origin '${safeSingleQuote(SELF_UPDATE_BRANCH)}'
+  npm ci
+  npm run deploy:guild || true
+  pm2 restart lyva-bot --update-env
+  pm2 save
+  echo "[$(date -Iseconds)] update done"
+} >> '${safeSingleQuote(SELF_UPDATE_LOG_PATH)}' 2>&1`;
+
+  const scriptPath = path.join(process.cwd(), "data", "dashboard-self-update.sh");
+  await ensureParentDir(scriptPath);
+  await fs.writeFile(scriptPath, script, { encoding: "utf8", mode: 0o700 });
+
+  const child = spawn("bash", [scriptPath], {
+    detached: true,
+    stdio: "ignore",
+  });
+  child.unref();
+
+  return {
+    startedAt,
+    branch: SELF_UPDATE_BRANCH,
+    appDir: SELF_UPDATE_APP_DIR,
+    logPath: SELF_UPDATE_LOG_PATH,
+  };
 }
 
 function sanitizeText(value) {
@@ -288,6 +376,42 @@ function buildPage({ appName, authed }) {
     }
     .bar-val { font-size: 12px; color: #9cb2dd; min-width: 70px; text-align: right; }
     .footer-note { font-size: 12px; color: #8ea5d4; }
+    .upload-box {
+      display: grid;
+      gap: 9px;
+      margin-top: 2px;
+    }
+    .upload-box input[type="file"] {
+      background: #0c1730;
+      border: 1px dashed #4a67ae;
+      border-radius: 12px;
+      padding: 10px;
+      color: #afc2ef;
+    }
+    .asset-list {
+      display: grid;
+      gap: 7px;
+      max-height: 290px;
+      overflow: auto;
+      margin-top: 6px;
+      padding-right: 4px;
+    }
+    .asset-item {
+      border: 1px solid #2b3f71;
+      border-radius: 10px;
+      padding: 9px 10px;
+      background: #0e1932;
+      font-size: 12px;
+      color: #d8e5ff;
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 10px;
+      align-items: center;
+    }
+    .asset-item small {
+      color: #98b0e2;
+      font-size: 11px;
+    }
     @media (max-width: 1100px) {
       .kpi-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
       .content-grid { grid-template-columns: 1fr; }
@@ -363,6 +487,10 @@ function buildPage({ appName, authed }) {
                 <input id="guildIdInput" placeholder="Guild ID untuk sync 1 guild" />
                 <button id="btnSyncOne">Sync 1 Guild</button>
               </div>
+              <div class="row">
+                <button id="btnSelfUpdate" class="secondary">Update dari GitHub</button>
+                <button id="btnSelfUpdateLog" class="secondary">Lihat Log Update</button>
+              </div>
               <div id="actionLog" class="log"></div>
             </section>
 
@@ -370,6 +498,19 @@ function buildPage({ appName, authed }) {
               <h3>System Pulse</h3>
               <div class="mini-chart" id="pulseBars"></div>
               <div id="pulseNote" class="sub" style="margin-top:10px;"></div>
+            </section>
+
+            <section class="panel block">
+              <h3>Asset Upload (Multi File)</h3>
+              <div class="upload-box">
+                <input id="assetFilesInput" type="file" multiple accept=".rbxm,.rbxmx,.lua,.luau,.txt" />
+                <div class="row">
+                  <button id="btnUploadFiles">Upload Semua File Terpilih</button>
+                  <button id="btnReloadAssets" class="secondary">Refresh List Asset</button>
+                </div>
+                <div id="uploadLog" class="log"></div>
+                <div id="assetList" class="asset-list"></div>
+              </div>
             </section>
           </div>
         </main>
@@ -385,6 +526,9 @@ function buildPage({ appName, authed }) {
     const actionLog = document.getElementById("actionLog");
     const pulseBars = document.getElementById("pulseBars");
     const pulseNote = document.getElementById("pulseNote");
+    const uploadLogBox = document.getElementById("uploadLog");
+    const assetListBox = document.getElementById("assetList");
+    const assetFilesInput = document.getElementById("assetFilesInput");
 
     function log(message) {
       if (!actionLog) return;
@@ -395,6 +539,12 @@ function buildPage({ appName, authed }) {
     function loginLog(message) {
       const box = document.getElementById("loginMsg");
       box.textContent = message;
+    }
+
+    function uploadLog(message) {
+      if (!uploadLogBox) return;
+      const now = new Date().toLocaleTimeString();
+      uploadLogBox.textContent = "[" + now + "] " + message + "\\n" + uploadLogBox.textContent;
     }
 
     function card(label, value, sub, tone) {
@@ -454,6 +604,80 @@ function buildPage({ appName, authed }) {
       return data;
     }
 
+    function fileToBase64(file) {
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => {
+          const result = String(reader.result || "");
+          const commaIndex = result.indexOf(",");
+          resolve(commaIndex >= 0 ? result.slice(commaIndex + 1) : result);
+        };
+        reader.onerror = () => reject(new Error("Gagal membaca file: " + file.name));
+        reader.readAsDataURL(file);
+      });
+    }
+
+    async function refreshAssetList() {
+      if (!assetListBox) return;
+      try {
+        const data = await api("/api/assets/list");
+        const items = Array.isArray(data.items) ? data.items : [];
+        if (items.length === 0) {
+          assetListBox.innerHTML = '<div class="sub">Belum ada asset.</div>';
+          return;
+        }
+
+        assetListBox.innerHTML = items
+          .slice(0, 50)
+          .map((item) =>
+            '<div class="asset-item"><div><div>' +
+              item.fileName +
+              "</div><small>type: " +
+              item.type +
+              " | size: " +
+              item.sizeLabel +
+              '</small></div><small>' +
+              item.id +
+              "</small></div>",
+          )
+          .join("");
+      } catch (error) {
+        assetListBox.innerHTML = '<div class="sub">Gagal load list: ' + error.message + "</div>";
+      }
+    }
+
+    async function uploadSelectedFiles() {
+      const list = assetFilesInput?.files ? Array.from(assetFilesInput.files) : [];
+      if (list.length === 0) {
+        uploadLog("Pilih file dulu.");
+        return;
+      }
+
+      uploadLog("Membaca " + list.length + " file...");
+      try {
+        const payloadFiles = [];
+        for (const file of list) {
+          const contentBase64 = await fileToBase64(file);
+          payloadFiles.push({ name: file.name, contentBase64 });
+        }
+
+        const res = await api("/api/assets/upload", {
+          method: "POST",
+          body: { files: payloadFiles },
+        });
+
+        uploadLog("Upload selesai. Berhasil: " + res.success.length + ", gagal: " + res.failed.length);
+        if (res.failed.length > 0) {
+          uploadLog("Detail gagal: " + res.failed.map((f) => f.name + " (" + f.reason + ")").join(", "));
+        }
+        if (assetFilesInput) assetFilesInput.value = "";
+        await refreshAssetList();
+        await refreshSummary();
+      } catch (error) {
+        uploadLog("Upload gagal: " + error.message);
+      }
+    }
+
     async function refreshSummary() {
       try {
         const data = await api("/api/summary");
@@ -466,12 +690,17 @@ function buildPage({ appName, authed }) {
         const pillUptime = document.getElementById("pillUptime");
         const sideStatus = document.getElementById("sideStatus");
         const sideNode = document.getElementById("sideNode");
+        const btnSelfUpdate = document.getElementById("btnSelfUpdate");
         if (dot) dot.className = isReady ? "dot online" : "dot";
         if (pillReady) pillReady.textContent = isReady ? "Bot Online" : "Bot Offline";
         if (pillGuilds) pillGuilds.textContent = String(data.bot.guildCount || 0);
         if (pillUptime) pillUptime.textContent = uptimeMinutes + "m";
         if (sideStatus) sideStatus.textContent = isReady ? "ONLINE" : "OFFLINE";
         if (sideNode) sideNode.textContent = "Node " + (data.system.nodeVersion || "-");
+        if (btnSelfUpdate) {
+          btnSelfUpdate.disabled = !data.system.selfUpdateEnabled;
+          btnSelfUpdate.style.opacity = data.system.selfUpdateEnabled ? "1" : "0.5";
+        }
 
         statsGrid.innerHTML = "";
         statsGrid.appendChild(card("Bot Identity", data.bot.tag || "-", "ID: " + (data.bot.id || "-"), "#7dd3fc"));
@@ -503,6 +732,7 @@ function buildPage({ appName, authed }) {
         }
 
         log("Data dashboard diperbarui.");
+        await refreshAssetList();
       } catch (error) {
         log("Gagal refresh: " + error.message);
       }
@@ -562,12 +792,38 @@ function buildPage({ appName, authed }) {
       }
     }
 
+    async function triggerSelfUpdate() {
+      try {
+        const data = await api("/api/actions/self-update", { method: "POST", body: {} });
+        log("Self update dimulai. Branch: " + data.branch + ". Cek log update untuk progress.");
+      } catch (error) {
+        log("Self update gagal start: " + error.message);
+      }
+    }
+
+    async function loadSelfUpdateLog() {
+      try {
+        const data = await api("/api/actions/self-update-log");
+        if (data.tail && data.tail.trim()) {
+          log("Log update terbaru:\\n" + data.tail);
+        } else {
+          log("Belum ada log update.");
+        }
+      } catch (error) {
+        log("Gagal ambil log update: " + error.message);
+      }
+    }
+
     document.getElementById("btnLogin")?.addEventListener("click", doLogin);
     document.getElementById("btnRefresh")?.addEventListener("click", refreshSummary);
     document.getElementById("btnSyncAll")?.addEventListener("click", syncAll);
     document.getElementById("btnSyncOne")?.addEventListener("click", syncOne);
     document.getElementById("btnClearGlobal")?.addEventListener("click", clearGlobal);
     document.getElementById("btnLogout")?.addEventListener("click", doLogout);
+    document.getElementById("btnSelfUpdate")?.addEventListener("click", triggerSelfUpdate);
+    document.getElementById("btnSelfUpdateLog")?.addEventListener("click", loadSelfUpdateLog);
+    document.getElementById("btnUploadFiles")?.addEventListener("click", uploadSelectedFiles);
+    document.getElementById("btnReloadAssets")?.addEventListener("click", refreshAssetList);
     document.getElementById("password")?.addEventListener("keydown", (e) => {
       if (e.key === "Enter") doLogin();
     });
@@ -668,7 +924,63 @@ async function collectSummary({ client, commands }) {
       nowSec: nowSec(),
       nodeVersion: process.version,
       privateOnlyMode: process.env.PRIVATE_ONLY_MODE !== "false",
+      selfUpdateEnabled: SELF_UPDATE_ENABLED,
     },
+  };
+}
+
+async function uploadDashboardAssets(filePayloads) {
+  const rawFiles = Array.isArray(filePayloads) ? filePayloads : [];
+  if (rawFiles.length === 0) {
+    throw new Error("Tidak ada file yang dikirim.");
+  }
+
+  const files = rawFiles.slice(0, MAX_UPLOAD_FILES);
+  const success = [];
+  const failed = [];
+
+  for (const file of files) {
+    const name = String(file?.name || "").trim();
+    const contentBase64 = String(file?.contentBase64 || "").trim();
+    try {
+      if (!name) {
+        throw new Error("Nama file kosong.");
+      }
+      if (!contentBase64) {
+        throw new Error("Konten file kosong.");
+      }
+
+      const buffer = Buffer.from(contentBase64, "base64");
+      if (!buffer.length) {
+        throw new Error("Konten base64 tidak valid.");
+      }
+      if (buffer.length > MAX_UPLOAD_BYTES_PER_FILE) {
+        throw new Error(`Ukuran file > ${Math.floor(MAX_UPLOAD_BYTES_PER_FILE / (1024 * 1024))} MB.`);
+      }
+
+      const saved = await saveAssetBuffer({
+        sourceName: name,
+        customName: "",
+        buffer,
+      });
+
+      success.push({
+        fileName: saved.fileName,
+        type: saved.type,
+        sizeLabel: saved.sizeLabel,
+      });
+    } catch (error) {
+      failed.push({
+        name: name || "unknown",
+        reason: error?.message || "unknown error",
+      });
+    }
+  }
+
+  return {
+    success,
+    failed,
+    skipped: Math.max(0, rawFiles.length - files.length),
   };
 }
 
@@ -735,6 +1047,31 @@ function startDashboard({ client, rest, clientId, getCommandsBody, syncGuildComm
         const commands = getCommandsBody();
         const summary = await collectSummary({ client, commands });
         sendJson(res, 200, summary);
+        return;
+      }
+
+      if (method === "GET" && url.pathname === "/api/assets/list") {
+        const items = await listAssets();
+        sendJson(res, 200, { ok: true, items });
+        return;
+      }
+
+      if (method === "POST" && url.pathname === "/api/assets/upload") {
+        const body = await readJsonBody(req, MAX_JSON_BYTES);
+        const result = await uploadDashboardAssets(body.files);
+        sendJson(res, 200, { ok: true, ...result });
+        return;
+      }
+
+      if (method === "POST" && url.pathname === "/api/actions/self-update") {
+        const result = await triggerSelfUpdate();
+        sendJson(res, 200, { ok: true, ...result });
+        return;
+      }
+
+      if (method === "GET" && url.pathname === "/api/actions/self-update-log") {
+        const tail = await readSelfUpdateLogTail(120);
+        sendJson(res, 200, { ok: true, tail });
         return;
       }
 

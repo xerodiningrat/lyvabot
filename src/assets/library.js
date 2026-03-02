@@ -161,6 +161,17 @@ async function saveAssetFromUrl({ url, sourceName, customName }) {
   }
 
   const buffer = Buffer.from(await response.arrayBuffer());
+  return saveAssetBuffer({ sourceName, customName, buffer });
+}
+
+async function saveAssetBuffer({ sourceName, customName, buffer }) {
+  if (!buffer) {
+    throw new Error("Buffer file tidak valid.");
+  }
+
+  await ensureAssetsDir();
+  const desiredName = buildTargetFileName(sourceName, customName);
+  const fileName = await getAvailableName(desiredName);
   const fullPath = path.join(ASSETS_DIR, fileName);
   await fs.writeFile(fullPath, buffer);
   const stats = await fs.stat(fullPath);
@@ -174,4 +185,5 @@ module.exports = {
   resolveAssetByQuery,
   searchAssets,
   saveAssetFromUrl,
+  saveAssetBuffer,
 };
