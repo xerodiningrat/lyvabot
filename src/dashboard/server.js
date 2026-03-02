@@ -5,7 +5,7 @@ const path = require("path");
 const { spawn } = require("child_process");
 const { Routes } = require("discord.js");
 const { listAssets, saveAssetBuffer, ASSET_DEDUPE_LOG_PATH } = require("../assets/library");
-const { listMobileAssets } = require("../assets/mobile-library");
+const { listMobileAssets, addMobileAsset } = require("../assets/mobile-library");
 
 const SESSION_COOKIE = "lyva_dash_session";
 const SESSION_TTL_MS = 1000 * 60 * 60 * 24;
@@ -523,6 +523,22 @@ function buildPage({ appName, authed }) {
                 <div id="assetList" class="asset-list"></div>
               </div>
             </section>
+
+            <section class="panel block">
+              <h3>Studio Lite ID</h3>
+              <div class="upload-box">
+                <div class="row">
+                  <input id="studioLiteFeatureInput" placeholder="Nama fitur (contoh: Fly UI, Speed UI)" />
+                  <input id="studioLiteIdInput" placeholder="Asset ID (angka)" />
+                </div>
+                <div class="row">
+                  <button id="btnAddStudioLite">Tambah Studio Lite ID</button>
+                  <button id="btnReloadStudioLite" class="secondary">Refresh List Studio Lite</button>
+                </div>
+                <div id="studioLiteLog" class="log"></div>
+                <div id="studioLiteList" class="asset-list"></div>
+              </div>
+            </section>
           </div>
         </main>
       </div>
@@ -542,6 +558,10 @@ function buildPage({ appName, authed }) {
     const uploadLogBox = document.getElementById("uploadLog");
     const assetListBox = document.getElementById("assetList");
     const assetFilesInput = document.getElementById("assetFilesInput");
+    const studioLiteLogBox = document.getElementById("studioLiteLog");
+    const studioLiteListBox = document.getElementById("studioLiteList");
+    const studioLiteFeatureInput = document.getElementById("studioLiteFeatureInput");
+    const studioLiteIdInput = document.getElementById("studioLiteIdInput");
 
     function log(message) {
       if (!actionLog) return;
@@ -558,6 +578,12 @@ function buildPage({ appName, authed }) {
       if (!uploadLogBox) return;
       const now = new Date().toLocaleTimeString();
       uploadLogBox.textContent = "[" + now + "] " + message + "\\n" + uploadLogBox.textContent;
+    }
+
+    function studioLiteLog(message) {
+      if (!studioLiteLogBox) return;
+      const now = new Date().toLocaleTimeString();
+      studioLiteLogBox.textContent = "[" + now + "] " + message + "\\n" + studioLiteLogBox.textContent;
     }
 
     function card(label, value, sub, tone) {
@@ -656,6 +682,61 @@ function buildPage({ appName, authed }) {
           .join("");
       } catch (error) {
         assetListBox.innerHTML = '<div class="sub">Gagal load list: ' + error.message + "</div>";
+      }
+    }
+
+    async function refreshStudioLiteList() {
+      if (!studioLiteListBox) return;
+      try {
+        const data = await api("/api/mobile/list?kind=studio-lite");
+        const items = Array.isArray(data.items) ? data.items : [];
+        if (items.length === 0) {
+          studioLiteListBox.innerHTML = '<div class="sub">Belum ada data Studio Lite ID.</div>';
+          return;
+        }
+
+        studioLiteListBox.innerHTML = items
+          .slice(0, 100)
+          .map((item) =>
+            '<div class="asset-item"><div><div>' +
+              item.name +
+              "</div><small>id: " +
+              item.id +
+              " | key: " +
+              item.key +
+              '</small></div><small>' +
+              item.kind +
+              "</small></div>",
+          )
+          .join("");
+      } catch (error) {
+        studioLiteListBox.innerHTML = '<div class="sub">Gagal load Studio Lite list: ' + error.message + "</div>";
+      }
+    }
+
+    async function addStudioLiteId() {
+      const feature = String(studioLiteFeatureInput?.value || "").trim();
+      const assetId = String(studioLiteIdInput?.value || "").trim();
+      if (!feature || !assetId) {
+        studioLiteLog("Isi Nama Fitur dan Asset ID dulu.");
+        return;
+      }
+
+      try {
+        const data = await api("/api/mobile/add", {
+          method: "POST",
+          body: {
+            name: feature,
+            id: assetId,
+            kind: "studio-lite",
+          },
+        });
+        studioLiteLog("Berhasil simpan: " + data.item.name + " (id " + data.item.id + ").");
+        if (studioLiteFeatureInput) studioLiteFeatureInput.value = "";
+        if (studioLiteIdInput) studioLiteIdInput.value = "";
+        await refreshStudioLiteList();
+      } catch (error) {
+        studioLiteLog("Gagal simpan Studio Lite ID: " + error.message);
       }
     }
 
@@ -819,6 +900,7 @@ function buildPage({ appName, authed }) {
 
         log("Data dashboard diperbarui.");
         await refreshAssetList();
+        await refreshStudioLiteList();
       } catch (error) {
         log("Gagal refresh: " + error.message);
       }
@@ -911,6 +993,11 @@ function buildPage({ appName, authed }) {
     document.getElementById("btnUploadFiles")?.addEventListener("click", uploadSelectedFiles);
     document.getElementById("btnReloadAssets")?.addEventListener("click", refreshAssetList);
     document.getElementById("btnDedupeLog")?.addEventListener("click", loadDedupeLog);
+    document.getElementById("btnAddStudioLite")?.addEventListener("click", addStudioLiteId);
+    document.getElementById("btnReloadStudioLite")?.addEventListener("click", refreshStudioLiteList);
+    document.getElementById("studioLiteIdInput")?.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") addStudioLiteId();
+    });
     document.getElementById("password")?.addEventListener("keydown", (e) => {
       if (e.key === "Enter") doLogin();
     });
@@ -1142,6 +1229,34 @@ function startDashboard({ client, rest, clientId, getCommandsBody, syncGuildComm
       if (method === "GET" && url.pathname === "/api/assets/list") {
         const items = await listAssets();
         sendJson(res, 200, { ok: true, items });
+        return;
+      }
+
+      if (method === "GET" && url.pathname === "/api/mobile/list") {
+        const kindFilter = String(url.searchParams.get("kind") || "").trim().toLowerCase();
+        const items = await listMobileAssets();
+        const filtered = kindFilter ? items.filter((item) => String(item.kind || "").toLowerCase() === kindFilter) : items;
+        sendJson(res, 200, { ok: true, items: filtered });
+        return;
+      }
+
+      if (method === "POST" && url.pathname === "/api/mobile/add") {
+        const body = await readJsonBody(req, MAX_JSON_BYTES);
+        const name = String(body.name || "").trim();
+        const id = String(body.id || "").trim();
+        const kind = String(body.kind || "studio-lite").trim().toLowerCase();
+        if (!name || !id) {
+          sendJson(res, 400, { ok: false, error: "name dan id wajib diisi." });
+          return;
+        }
+
+        const item = await addMobileAsset({
+          name,
+          id,
+          kind,
+          createdBy: "dashboard",
+        });
+        sendJson(res, 200, { ok: true, item });
         return;
       }
 

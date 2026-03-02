@@ -105,6 +105,7 @@ Bot ini punya dashboard web built-in untuk:
 - upload free asset langsung dari dashboard (multi-file sekaligus)
 - lihat list asset terbaru langsung di dashboard
 - trigger update app dari GitHub langsung dari dashboard (opsional, jika diaktifkan)
+- kelola data `Studio Lite ID` langsung dari dashboard (input `Nama Fitur + Asset ID`)
 
 Catatan upload dashboard:
 - Upload multi-file diproses satu per satu (lebih stabil untuk file banyak).
