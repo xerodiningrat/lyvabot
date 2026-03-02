@@ -38,6 +38,12 @@ copy .env.example .env
 - `MENU_PROMO_TEXT` (opsional, teks promo khusus panel `/menu`)
 - `MENU_PROMO_URL` (opsional, URL tombol promo di panel `/menu`)
 - `PRIVATE_ONLY_MODE` (default `true`, semua output command dibuat private/ephemeral)
+- `VERIFY_DEFAULT_ROLE_ID` (opsional, role default untuk tombol verifikasi `/verify`)
+- `DASHBOARD_ENABLED` (set `true` untuk aktifkan web dashboard)
+- `DASHBOARD_HOST` (default `127.0.0.1`, untuk diproxy via Nginx)
+- `DASHBOARD_PORT` (default `3001`)
+- `DASHBOARD_TITLE` (judul halaman dashboard)
+- `DASHBOARD_USERNAME` dan `DASHBOARD_PASSWORD` (login dashboard)
 
 4. Deploy slash command ke guild test
 
@@ -60,11 +66,72 @@ npm start
 ### `/menu`
 - Menampilkan panel awal dengan tombol interaktif:
   - `Fitur Review`
+  - `Verify`
   - `Asset File`
   - `Asset ID Mobile`
   - `Quick Test`
 - Saat tombol diklik, bot kirim panduan singkat fitur terkait.
 - Panel dikirim private (ephemeral) saat `PRIVATE_ONLY_MODE=true`.
+
+### `/verify panel`
+- Admin kirim panel tombol `Verify` ke channel.
+- User klik tombol untuk otomatis dapat role verifikasi.
+- Opsi:
+  - `role` (opsional kalau `VERIFY_DEFAULT_ROLE_ID` sudah di-set)
+  - `channel` (opsional)
+  - `title` dan `description` (opsional)
+- Syarat:
+  - Bot punya permission `Manage Roles`
+  - Posisi role bot harus di atas role verifikasi.
+
+### `/verify status`
+- Cek apakah user sudah punya role verifikasi default (`VERIFY_DEFAULT_ROLE_ID`).
+
+## Dashboard Web
+
+Bot ini punya dashboard web built-in untuk:
+- melihat status bot (online, guild, uptime)
+- melihat statistik AI usage, asset count, dan review history
+- sync command ke semua guild / 1 guild
+- clear global commands
+
+Aktifkan dengan env:
+
+```env
+DASHBOARD_ENABLED=true
+DASHBOARD_HOST=127.0.0.1
+DASHBOARD_PORT=3001
+DASHBOARD_USERNAME=admin
+DASHBOARD_PASSWORD=ganti_password_kuat
+```
+
+Lalu restart bot, dan cek di VPS:
+
+```bash
+curl http://127.0.0.1:3001
+```
+
+Untuk akses publik via domain + Nginx:
+
+```nginx
+server {
+    server_name dashboard.lyvaindonesia.my.id;
+
+    location / {
+        proxy_pass http://127.0.0.1:3001;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+}
+```
+
+Setelah itu:
+1. `sudo nginx -t`
+2. `sudo systemctl reload nginx`
+3. `sudo certbot --nginx -d dashboard.lyvaindonesia.my.id`
 
 ### `/review paste`
 - `code` (optional): script Lua/Roblox

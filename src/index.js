@@ -3,6 +3,8 @@ const { Client, Collection, GatewayIntentBits, Events, MessageFlags, REST, Route
 const reviewCommand = require("./commands/review");
 const assetCommand = require("./commands/asset");
 const menuCommand = require("./commands/menu");
+const verifyCommand = require("./commands/verify");
+const { startDashboard } = require("./dashboard/server");
 
 const token = process.env.DISCORD_TOKEN;
 const clientId = process.env.DISCORD_CLIENT_ID;
@@ -19,6 +21,7 @@ client.commands = new Collection();
 client.commands.set(reviewCommand.data.name, reviewCommand);
 client.commands.set(assetCommand.data.name, assetCommand);
 client.commands.set(menuCommand.data.name, menuCommand);
+client.commands.set(verifyCommand.data.name, verifyCommand);
 
 const rest = clientId ? new REST({ version: "10" }).setToken(token) : null;
 
@@ -129,6 +132,14 @@ client.on(Events.GuildCreate, async (guild) => {
   } catch (error) {
     console.error(`Auto sync on join gagal untuk guild ${guild.id}`, error?.code || error?.message || error);
   }
+});
+
+startDashboard({
+  client,
+  rest,
+  clientId,
+  getCommandsBody,
+  syncGuildCommands,
 });
 
 client.login(token);

@@ -3,6 +3,7 @@ const { REST, Routes } = require("discord.js");
 const reviewCommand = require("./commands/review");
 const assetCommand = require("./commands/asset");
 const menuCommand = require("./commands/menu");
+const verifyCommand = require("./commands/verify");
 
 const token = process.env.DISCORD_TOKEN;
 const clientId = process.env.DISCORD_CLIENT_ID;
@@ -17,7 +18,12 @@ if (!token || !clientId) {
 }
 
 const rest = new REST({ version: "10" }).setToken(token);
-const commandsBody = [reviewCommand.data.toJSON(), assetCommand.data.toJSON(), menuCommand.data.toJSON()];
+const commandsBody = [
+  reviewCommand.data.toJSON(),
+  assetCommand.data.toJSON(),
+  menuCommand.data.toJSON(),
+  verifyCommand.data.toJSON(),
+];
 
 function parseGuildIds() {
   const ids = guildIdsRaw

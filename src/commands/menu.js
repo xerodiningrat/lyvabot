@@ -13,6 +13,7 @@ const PROMO_URL_DEFAULT = "https://lyvaindonesia.com";
 
 const PANEL_CUSTOM_IDS = {
   REVIEW: "menu:review",
+  VERIFY: "menu:verify",
   ASSET_FILE: "menu:asset-file",
   ASSET_MOBILE: "menu:asset-mobile",
   QUICK_TEST: "menu:quick-test",
@@ -52,6 +53,11 @@ function buildPanel() {
         inline: false,
       },
       {
+        name: "Verifikasi User",
+        value: "`/verify panel` | `/verify status`",
+        inline: false,
+      },
+      {
         name: "Free Asset",
         value: "`/asset list` | `/asset get` | `/asset upload`",
         inline: false,
@@ -75,6 +81,10 @@ function buildPanel() {
       .setCustomId(PANEL_CUSTOM_IDS.REVIEW)
       .setLabel("Review")
       .setStyle(ButtonStyle.Primary),
+    new ButtonBuilder()
+      .setCustomId(PANEL_CUSTOM_IDS.VERIFY)
+      .setLabel("Verify")
+      .setStyle(ButtonStyle.Secondary),
     new ButtonBuilder()
       .setCustomId(PANEL_CUSTOM_IDS.ASSET_FILE)
       .setLabel("Asset File")
@@ -123,6 +133,18 @@ function getButtonContent(customId) {
       "- `/asset upload` -> upload file asset (admin)",
       "- `/asset list` -> lihat daftar file asset",
       "- `/asset get` -> ambil file (bisa autocomplete)",
+      "",
+      promoText,
+    ].join("\n");
+  }
+
+  if (customId === PANEL_CUSTOM_IDS.VERIFY) {
+    return [
+      "**Verify Commands**",
+      "- `/verify panel` -> kirim panel tombol verifikasi (admin)",
+      "- `/verify status` -> cek status verifikasi kamu",
+      "",
+      "Catatan: bot butuh permission `Manage Roles` dan role bot harus di atas role verifikasi.",
       "",
       promoText,
     ].join("\n");
