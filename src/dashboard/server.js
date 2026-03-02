@@ -83,103 +83,226 @@ function buildPage({ appName, authed }) {
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>${safeName}</title>
   <style>
+    @import url("https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&display=swap");
     :root {
-      --bg: #0b1220;
-      --panel: #121a2b;
-      --panel-2: #1b2640;
-      --line: #2c3a5e;
-      --text: #e6edf7;
-      --muted: #9fb0d1;
+      --bg: #0c1221;
+      --bg-2: #121b32;
+      --panel: #151f37;
+      --panel-soft: #192546;
+      --line: #2a3b69;
+      --text: #e9f0ff;
+      --muted: #95a7d4;
       --brand: #22c55e;
       --brand-2: #38bdf8;
       --warn: #f59e0b;
       --danger: #ef4444;
+      --purple: #7c3aed;
     }
-    * { box-sizing: border-box; }
+    * { box-sizing: border-box; margin: 0; }
     body {
-      margin: 0;
-      font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+      font-family: "Nunito", "Segoe UI", Tahoma, sans-serif;
       color: var(--text);
-      background: radial-gradient(1200px 600px at 10% -20%, #1f325f 0%, var(--bg) 55%);
+      background:
+        radial-gradient(1200px 600px at 8% -20%, #2f3f7a 0%, transparent 60%),
+        radial-gradient(1000px 600px at 110% 0%, #173e66 0%, transparent 55%),
+        var(--bg);
       min-height: 100vh;
     }
-    .wrap { max-width: 1100px; margin: 0 auto; padding: 24px; }
-    .title {
-      margin: 0 0 8px;
-      font-size: 28px;
-      letter-spacing: .4px;
-    }
-    .sub { margin: 0 0 24px; color: var(--muted); }
-    .grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-      gap: 12px;
-      margin-bottom: 16px;
-    }
-    .card, .panel {
-      background: linear-gradient(180deg, var(--panel) 0%, var(--panel-2) 100%);
+    .wrap { max-width: 1320px; margin: 0 auto; padding: 18px; }
+    .hidden { display: none !important; }
+    .panel {
+      background: linear-gradient(180deg, var(--panel) 0%, var(--panel-soft) 100%);
       border: 1px solid var(--line);
-      border-radius: 14px;
-      padding: 14px;
-      box-shadow: 0 8px 24px rgba(0,0,0,.18);
+      border-radius: 16px;
+      box-shadow: 0 14px 34px rgba(0, 0, 0, 0.24);
     }
-    .metric { font-size: 24px; font-weight: 700; margin: 6px 0 0; }
-    .muted { color: var(--muted); font-size: 13px; }
-    .row { display: flex; gap: 10px; flex-wrap: wrap; }
+    .login-shell {
+      max-width: 420px;
+      margin: 9vh auto 0;
+      padding: 18px;
+      display: grid;
+      gap: 12px;
+    }
+    .login-shell h2 {
+      font-size: 24px;
+      font-weight: 800;
+      letter-spacing: 0.2px;
+    }
+    .sub { color: var(--muted); font-size: 14px; line-height: 1.5; }
+    input {
+      width: 100%;
+      padding: 12px 14px;
+      border: 1px solid var(--line);
+      border-radius: 11px;
+      background: #0f1730;
+      color: var(--text);
+      outline: none;
+    }
+    input:focus { border-color: #4f79d6; box-shadow: 0 0 0 3px rgba(79, 121, 214, .2); }
     button {
       border: 0;
-      border-radius: 10px;
-      padding: 10px 14px;
-      font-weight: 600;
+      border-radius: 12px;
+      padding: 11px 14px;
+      font-weight: 800;
+      letter-spacing: .2px;
       cursor: pointer;
-      color: #09111f;
+      color: #0b1220;
       background: var(--brand);
+      transition: transform .15s ease, filter .15s ease;
     }
+    button:hover { filter: brightness(1.05); transform: translateY(-1px); }
     button.secondary { background: var(--brand-2); }
     button.warn { background: var(--warn); }
     button.danger { background: var(--danger); color: #fff; }
-    input {
-      width: 100%;
-      padding: 10px 12px;
-      border: 1px solid var(--line);
-      border-radius: 10px;
-      background: #0f1729;
-      color: var(--text);
-    }
-    .actions { display: grid; gap: 10px; }
     .log {
-      margin-top: 10px;
+      margin-top: 4px;
       font-size: 13px;
       color: var(--muted);
       white-space: pre-wrap;
-      background: #0d1424;
+      background: #0e172c;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 12px;
+      min-height: 82px;
+    }
+    .app-shell {
+      display: grid;
+      grid-template-columns: 250px minmax(0, 1fr);
+      gap: 14px;
+    }
+    .sidebar {
+      padding: 16px;
+      min-height: calc(100vh - 36px);
+      position: sticky;
+      top: 18px;
+      display: grid;
+      grid-template-rows: auto auto 1fr auto;
+      gap: 14px;
+    }
+    .brand-box {
+      background: linear-gradient(135deg, #21408a, #7c3aed);
+      border-radius: 14px;
+      padding: 14px;
+    }
+    .brand-title { font-weight: 900; font-size: 18px; }
+    .brand-sub { color: #dce7ff; font-size: 13px; margin-top: 4px; }
+    .nav {
+      display: grid;
+      gap: 6px;
+    }
+    .nav-item {
       border: 1px solid var(--line);
       border-radius: 10px;
+      background: #101a33;
+      color: #d5e3ff;
+      padding: 9px 11px;
+      font-weight: 700;
+      font-size: 13px;
+    }
+    .status-box {
+      border: 1px dashed #4868b8;
+      border-radius: 12px;
       padding: 10px;
-      min-height: 70px;
+      background: #101a32;
     }
-    .login {
-      max-width: 420px;
-      margin: 8vh auto 0;
+    .topbar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 12px;
     }
-    .hidden { display: none; }
+    .title {
+      font-size: 26px;
+      font-weight: 900;
+      line-height: 1.2;
+    }
     .pill {
-      display: inline-block;
-      padding: 4px 8px;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 10px;
       border-radius: 999px;
-      font-size: 12px;
       border: 1px solid var(--line);
-      color: var(--muted);
+      background: #101a33;
+      color: #c9d8f8;
+      font-size: 12px;
+      font-weight: 700;
+    }
+    .dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 999px;
+      background: #9ca3af;
+    }
+    .dot.online { background: #22c55e; }
+    .kpi-grid {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 12px;
+      margin-bottom: 12px;
+    }
+    .kpi-card {
+      border-radius: 14px;
+      padding: 12px;
+      border: 1px solid var(--line);
+      background: linear-gradient(180deg, #121e39 0%, #1b284a 100%);
+    }
+    .kpi-label { color: #a8badf; font-size: 12px; font-weight: 700; }
+    .kpi-value { font-size: 24px; font-weight: 900; margin-top: 6px; letter-spacing: .2px; }
+    .kpi-sub { color: #89a0d2; font-size: 12px; margin-top: 5px; }
+    .content-grid {
+      display: grid;
+      grid-template-columns: 1.2fr .8fr;
+      gap: 12px;
+    }
+    .block { padding: 14px; }
+    .block h3 {
+      font-size: 15px;
+      margin-bottom: 10px;
+      color: #d6e4ff;
+      letter-spacing: .2px;
+    }
+    .row { display: flex; flex-wrap: wrap; gap: 9px; margin-bottom: 9px; }
+    .row input { flex: 1; min-width: 180px; }
+    .mini-chart {
+      margin-top: 4px;
+      display: grid;
+      gap: 9px;
+    }
+    .bar-row { display: grid; grid-template-columns: 140px 1fr auto; gap: 8px; align-items: center; }
+    .bar-label { font-size: 12px; color: #a4b8e5; font-weight: 700; }
+    .bar {
+      height: 9px;
+      border-radius: 999px;
+      background: #0f1a34;
+      border: 1px solid #263a67;
+      overflow: hidden;
+    }
+    .bar-fill {
+      height: 100%;
+      background: linear-gradient(90deg, #38bdf8, #7c3aed);
+      width: 0%;
+      transition: width .3s ease;
+    }
+    .bar-val { font-size: 12px; color: #9cb2dd; min-width: 70px; text-align: right; }
+    .footer-note { font-size: 12px; color: #8ea5d4; }
+    @media (max-width: 1100px) {
+      .kpi-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .content-grid { grid-template-columns: 1fr; }
+    }
+    @media (max-width: 840px) {
+      .app-shell { grid-template-columns: 1fr; }
+      .sidebar { min-height: auto; position: static; }
+      .kpi-grid { grid-template-columns: 1fr; }
     }
   </style>
 </head>
 <body>
   <div class="wrap">
-    <h1 class="title">${safeName}</h1>
-    <p class="sub">Dashboard bot untuk cek status dan kontrol command sync.</p>
-
-    <section id="loginView" class="panel login ${authed ? "hidden" : ""}">
-      <h2 style="margin-top:0;">Login Dashboard</h2>
+    <section id="loginView" class="panel login-shell ${authed ? "hidden" : ""}">
+      <h2>${safeName}</h2>
       <p class="muted">Masuk pakai akun dashboard yang ada di .env</p>
       <div style="display:grid; gap:10px;">
         <input id="username" placeholder="Username" autocomplete="username" />
@@ -190,22 +313,66 @@ function buildPage({ appName, authed }) {
     </section>
 
     <section id="appView" class="${authed ? "" : "hidden"}">
-      <div class="grid" id="statsGrid"></div>
-      <div class="panel">
-        <h3 style="margin-top:0;">Aksi Bot</h3>
-        <div class="actions">
-          <div class="row">
-            <button id="btnRefresh" class="secondary">Refresh Data</button>
-            <button id="btnSyncAll">Sync Commands Semua Guild</button>
-            <button id="btnClearGlobal" class="warn">Clear Global Commands</button>
-            <button id="btnLogout" class="danger">Logout</button>
+      <div class="app-shell">
+        <aside class="panel sidebar">
+          <div class="brand-box">
+            <div class="brand-title">${safeName}</div>
+            <div class="brand-sub">Control panel bot Discord</div>
           </div>
-          <div class="row">
-            <input id="guildIdInput" placeholder="Guild ID untuk sync 1 guild (opsional)" />
-            <button id="btnSyncOne">Sync 1 Guild</button>
+          <div class="nav">
+            <div class="nav-item">Overview</div>
+            <div class="nav-item">Guild Commands</div>
+            <div class="nav-item">AI Usage</div>
+            <div class="nav-item">Asset Library</div>
           </div>
-        </div>
-        <div id="actionLog" class="log"></div>
+          <div class="status-box">
+            <div class="sub">Status Runtime</div>
+            <div id="sideStatus" style="font-size:18px;font-weight:900;margin-top:4px;">-</div>
+            <div id="sideNode" class="sub" style="margin-top:2px;">Node -</div>
+          </div>
+          <div class="footer-note">
+            Private mode dan budget AI tetap diatur lewat environment untuk keamanan.
+          </div>
+        </aside>
+
+        <main>
+          <div class="topbar">
+            <div>
+              <div class="title">Dashboard</div>
+              <div class="sub" style="margin-top:3px;">Monitor bot, sinkronisasi command, dan cek penggunaan harian.</div>
+            </div>
+            <div style="display:flex;gap:8px;flex-wrap:wrap;">
+              <div class="pill"><span id="dotReady" class="dot"></span><span id="pillReady">Bot -</span></div>
+              <div class="pill"><span>Guild:</span><strong id="pillGuilds">0</strong></div>
+              <div class="pill"><span>Uptime:</span><strong id="pillUptime">0m</strong></div>
+            </div>
+          </div>
+
+          <div class="kpi-grid" id="statsGrid"></div>
+
+          <div class="content-grid">
+            <section class="panel block">
+              <h3>Aksi Bot</h3>
+              <div class="row">
+                <button id="btnRefresh" class="secondary">Refresh Data</button>
+                <button id="btnSyncAll">Sync Semua Guild</button>
+                <button id="btnClearGlobal" class="warn">Clear Global</button>
+                <button id="btnLogout" class="danger">Logout</button>
+              </div>
+              <div class="row">
+                <input id="guildIdInput" placeholder="Guild ID untuk sync 1 guild" />
+                <button id="btnSyncOne">Sync 1 Guild</button>
+              </div>
+              <div id="actionLog" class="log"></div>
+            </section>
+
+            <section class="panel block">
+              <h3>System Pulse</h3>
+              <div class="mini-chart" id="pulseBars"></div>
+              <div id="pulseNote" class="sub" style="margin-top:10px;"></div>
+            </section>
+          </div>
+        </main>
       </div>
     </section>
   </div>
@@ -216,8 +383,11 @@ function buildPage({ appName, authed }) {
     const appView = document.getElementById("appView");
     const statsGrid = document.getElementById("statsGrid");
     const actionLog = document.getElementById("actionLog");
+    const pulseBars = document.getElementById("pulseBars");
+    const pulseNote = document.getElementById("pulseNote");
 
     function log(message) {
+      if (!actionLog) return;
       const now = new Date().toLocaleTimeString();
       actionLog.textContent = "[" + now + "] " + message + "\\n" + actionLog.textContent;
     }
@@ -227,11 +397,48 @@ function buildPage({ appName, authed }) {
       box.textContent = message;
     }
 
-    function card(label, value, sub) {
+    function card(label, value, sub, tone) {
       const el = document.createElement("div");
-      el.className = "card";
-      el.innerHTML = '<div class="muted">' + label + '</div><div class="metric">' + value + '</div><div class="muted">' + (sub || "") + '</div>';
+      el.className = "kpi-card";
+      const color = tone || "#e9f0ff";
+      el.innerHTML =
+        '<div class="kpi-label">' +
+        label +
+        "</div>" +
+        '<div class="kpi-value" style="color:' +
+        color +
+        ';">' +
+        value +
+        "</div>" +
+        '<div class="kpi-sub">' +
+        (sub || "-") +
+        "</div>";
       return el;
+    }
+
+    function ratio(value, max) {
+      const n = Number(value || 0);
+      const m = Number(max || 1);
+      if (!Number.isFinite(n) || !Number.isFinite(m) || m <= 0) return 0;
+      return Math.max(0, Math.min(100, Math.round((n / m) * 100)));
+    }
+
+    function pulseRow(label, val, max, suffix) {
+      const pct = ratio(val, max);
+      const row = document.createElement("div");
+      row.className = "bar-row";
+      row.innerHTML =
+        '<div class="bar-label">' +
+        label +
+        "</div>" +
+        '<div class="bar"><div class="bar-fill" style="width:' +
+        pct +
+        '%"></div></div>' +
+        '<div class="bar-val">' +
+        val +
+        (suffix || "") +
+        "</div>";
+      return row;
     }
 
     async function api(path, options = {}) {
@@ -250,14 +457,51 @@ function buildPage({ appName, authed }) {
     async function refreshSummary() {
       try {
         const data = await api("/api/summary");
+        const isReady = Boolean(data.bot.ready);
+        const uptimeMinutes = data.bot.uptimeSec ? Math.floor(data.bot.uptimeSec / 60) : 0;
+
+        const dot = document.getElementById("dotReady");
+        const pillReady = document.getElementById("pillReady");
+        const pillGuilds = document.getElementById("pillGuilds");
+        const pillUptime = document.getElementById("pillUptime");
+        const sideStatus = document.getElementById("sideStatus");
+        const sideNode = document.getElementById("sideNode");
+        if (dot) dot.className = isReady ? "dot online" : "dot";
+        if (pillReady) pillReady.textContent = isReady ? "Bot Online" : "Bot Offline";
+        if (pillGuilds) pillGuilds.textContent = String(data.bot.guildCount || 0);
+        if (pillUptime) pillUptime.textContent = uptimeMinutes + "m";
+        if (sideStatus) sideStatus.textContent = isReady ? "ONLINE" : "OFFLINE";
+        if (sideNode) sideNode.textContent = "Node " + (data.system.nodeVersion || "-");
+
         statsGrid.innerHTML = "";
-        const uptime = data.bot.uptimeSec ? Math.floor(data.bot.uptimeSec / 60) + " menit" : "0 menit";
-        statsGrid.appendChild(card("Bot Status", data.bot.ready ? "Online" : "Offline", data.bot.tag || "-"));
-        statsGrid.appendChild(card("Guild Join", String(data.bot.guildCount), "Command loaded: " + data.bot.commandCount));
-        statsGrid.appendChild(card("Uptime", uptime, "Node: " + data.system.nodeVersion));
-        statsGrid.appendChild(card("AI Hari Ini", "$" + data.ai.totalCostUSD.toFixed(4), "Req: " + data.ai.totalRequests));
-        statsGrid.appendChild(card("Free Asset File", String(data.assets.fileCount), "Mobile ID: " + data.assets.mobileCount));
-        statsGrid.appendChild(card("History Finding", String(data.reviewHistory.totalEntries), "Updated: " + data.reviewHistory.lastUpdatedLabel));
+        statsGrid.appendChild(card("Bot Identity", data.bot.tag || "-", "ID: " + (data.bot.id || "-"), "#7dd3fc"));
+        statsGrid.appendChild(card("Guild Join", String(data.bot.guildCount || 0), "Commands: " + (data.bot.commandCount || 0), "#22c55e"));
+        statsGrid.appendChild(card("AI Cost Today", "$" + Number(data.ai.totalCostUSD || 0).toFixed(4), "Req: " + Number(data.ai.totalRequests || 0), "#f59e0b"));
+        statsGrid.appendChild(card("Asset Library", String(data.assets.fileCount || 0), "Mobile IDs: " + Number(data.assets.mobileCount || 0), "#a78bfa"));
+        statsGrid.appendChild(card("Review History", String(data.reviewHistory.totalEntries || 0), "Last: " + (data.reviewHistory.lastUpdatedLabel || "-"), "#38bdf8"));
+        statsGrid.appendChild(card("Private Mode", data.system.privateOnlyMode ? "ON" : "OFF", "Node: " + (data.system.nodeVersion || "-"), "#eab308"));
+        statsGrid.appendChild(card("Daily Budget", "$" + Number(data.ai.dailyBudgetUSD || 0).toFixed(2), "Remain: $" + Number(data.ai.remainingBudgetUSD || 0).toFixed(2), "#f87171"));
+        statsGrid.appendChild(card("Uptime", uptimeMinutes + " menit", "Local now: " + new Date(data.system.nowSec * 1000).toLocaleString("id-ID"), "#c4b5fd"));
+
+        if (pulseBars) {
+          pulseBars.innerHTML = "";
+          pulseBars.appendChild(pulseRow("Guild", Number(data.bot.guildCount || 0), Math.max(1, Number(data.bot.guildCount || 0), 10), ""));
+          pulseBars.appendChild(pulseRow("Commands", Number(data.bot.commandCount || 0), 12, ""));
+          pulseBars.appendChild(pulseRow("Asset Files", Number(data.assets.fileCount || 0), Math.max(10, Number(data.assets.fileCount || 0)), ""));
+          pulseBars.appendChild(pulseRow("AI Requests", Number(data.ai.totalRequests || 0), Math.max(1, Number(data.ai.maxRequestsPerDay || 250)), ""));
+          pulseBars.appendChild(pulseRow("AI Budget", Number(data.ai.totalCostUSD || 0).toFixed(2), Math.max(1, Number(data.ai.dailyBudgetUSD || 5)), "$"));
+        }
+        if (pulseNote) {
+          pulseNote.textContent =
+            "Budget " +
+            Number(data.ai.totalCostUSD || 0).toFixed(4) +
+            " / " +
+            Number(data.ai.dailyBudgetUSD || 0).toFixed(2) +
+            " USD, sisa " +
+            Number(data.ai.remainingBudgetUSD || 0).toFixed(4) +
+            " USD.";
+        }
+
         log("Data dashboard diperbarui.");
       } catch (error) {
         log("Gagal refresh: " + error.message);
@@ -385,6 +629,9 @@ async function collectSummary({ client, commands }) {
   const mobileAssets = await listMobileAssets().catch(() => []);
 
   const day = aiStore?.days?.[getTodayKey()] || {};
+  const dailyBudgetUSD = Number(process.env.AI_DAILY_BUDGET_USD || 5);
+  const maxRequestsPerDay = Number(process.env.AI_MAX_REQUESTS_PER_DAY || 250);
+  const totalCostUSD = Number(day.totalCostUSD || 0);
   const entries = historyStore?.entries && typeof historyStore.entries === "object" ? historyStore.entries : {};
   const lastSeenList = Object.values(entries)
     .map((item) => item?.lastSeen)
@@ -404,7 +651,10 @@ async function collectSummary({ client, commands }) {
     },
     ai: {
       totalRequests: Number(day.totalRequests || 0),
-      totalCostUSD: Number(day.totalCostUSD || 0),
+      totalCostUSD,
+      dailyBudgetUSD,
+      remainingBudgetUSD: Math.max(0, dailyBudgetUSD - totalCostUSD),
+      maxRequestsPerDay,
     },
     assets: {
       fileCount: assets.length,
