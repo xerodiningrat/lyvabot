@@ -1085,16 +1085,17 @@ function buildMemberPage({ title = MEMBER_PAGE_TITLE, promoUrl = MEMBER_PROMO_UR
   <style>
     @import url("https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap");
     :root {
-      --bg: #f4f7fc;
-      --bg-soft: #fdfefe;
+      --bg: #f3f6fb;
+      --bg-soft: #f9fbff;
       --panel: #ffffff;
       --line: #dde4ef;
-      --text: #10213f;
-      --muted: #62748b;
+      --text: #132948;
+      --muted: #62758c;
       --brand: #ff7a00;
-      --brand2: #2274e6;
+      --brand2: #2149d9;
       --accent: #0ea765;
       --danger: #ef4444;
+      --shadow: 0 14px 34px rgba(16, 33, 66, 0.09);
     }
     * { box-sizing: border-box; margin: 0; }
     body {
@@ -1105,52 +1106,199 @@ function buildMemberPage({ title = MEMBER_PAGE_TITLE, promoUrl = MEMBER_PROMO_UR
         radial-gradient(1000px 520px at 100% -20%, #ddebff 0%, transparent 55%),
         var(--bg);
       min-height: 100vh;
-      padding: 16px;
+      padding: 12px;
     }
-    .wrap { max-width: 1360px; margin: 0 auto; }
+    .wrap { max-width: 1500px; margin: 0 auto; }
     .layout {
       display: grid;
-      grid-template-columns: 240px minmax(0, 1fr);
+      grid-template-columns: 84px minmax(0, 1fr);
       gap: 12px;
       align-items: start;
     }
     .panel {
       border: 1px solid var(--line);
-      border-radius: 16px;
+      border-radius: 14px;
       background: var(--panel);
-      box-shadow: 0 12px 28px rgba(18, 34, 65, 0.08);
+      box-shadow: var(--shadow);
     }
-    .sidebar { padding: 14px; position: sticky; top: 16px; display: grid; gap: 10px; }
-    .logo {
-      border-radius: 12px;
-      border: 1px solid #ffd6b0;
-      padding: 12px;
-      background: linear-gradient(135deg, #ff9f43, #ff6a00);
+    .sidebar {
+      padding: 10px 8px;
+      position: sticky;
+      top: 12px;
+      display: grid;
+      gap: 10px;
+      justify-items: center;
+      min-height: calc(100vh - 24px);
     }
-    .logo h2 { font-size: 20px; font-weight: 800; color: #fff; }
-    .logo p { margin-top: 4px; font-size: 12px; color: #ffe7d2; }
-    .menu { display: grid; gap: 8px; }
+    .logo-pill {
+      width: 52px;
+      height: 52px;
+      border-radius: 14px;
+      display: grid;
+      place-items: center;
+      background: linear-gradient(135deg, #ff9d3c, #ff6c00);
+      color: #fff;
+      font-weight: 800;
+      font-size: 18px;
+      border: 1px solid #ffc593;
+    }
+    .menu {
+      display: grid;
+      gap: 6px;
+      width: 100%;
+    }
     .menu button {
       width: 100%;
-      text-align: left;
       border: 1px solid var(--line);
-      border-radius: 10px;
-      padding: 10px 11px;
+      border-radius: 12px;
+      padding: 9px 6px;
       background: #fff;
-      color: #2a456f;
+      color: #2b466f;
       font-weight: 700;
       cursor: pointer;
+      font-size: 11px;
+      line-height: 1.2;
+      display: grid;
+      gap: 3px;
+      justify-items: center;
     }
     .menu button.active {
       background: #fff2e6;
       border-color: #ffc490;
       color: #9d4f00;
     }
-    .content { display: grid; gap: 12px; }
+    .content { display: grid; gap: 10px; }
+    .install-bar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 12px;
+      background: #f4f0ff;
+      border-color: #ddd2ff;
+      color: #3c2f7c;
+      font-size: 13px;
+      font-weight: 600;
+    }
+    .topbar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+      padding: 10px 12px;
+    }
+    .brand-wrap {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      font-weight: 800;
+      color: #183764;
+    }
+    .brand-mark {
+      width: 28px;
+      height: 28px;
+      border-radius: 8px;
+      background: linear-gradient(135deg, #ff9b36, #ff6f00);
+      color: #fff;
+      display: grid;
+      place-items: center;
+      font-size: 14px;
+      font-weight: 800;
+    }
+    .search-wrap {
+      flex: 1;
+      min-width: 250px;
+      max-width: 600px;
+      position: relative;
+    }
+    .search-wrap input {
+      width: 100%;
+      border: 1px solid #cfd9e8;
+      border-radius: 999px;
+      padding: 11px 14px;
+      font-size: 13px;
+      outline: none;
+    }
+    .search-wrap input:focus {
+      border-color: #ffc08a;
+      box-shadow: 0 0 0 3px #ffe8d4;
+    }
+    .top-actions {
+      display: inline-flex;
+      gap: 8px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
     .section { display: none; }
     .section.active { display: block; }
-    .hero { padding: 18px; display: grid; gap: 10px; }
-    .title { font-size: 32px; font-weight: 800; letter-spacing: .2px; color: #143662; }
+    .hero {
+      padding: 12px;
+      display: grid;
+      gap: 10px;
+    }
+    .hero-banner {
+      border-radius: 14px;
+      overflow: hidden;
+      border: 1px solid #d7e1f1;
+      background:
+        radial-gradient(600px 280px at 10% 20%, #5767e5 0%, transparent 60%),
+        radial-gradient(500px 260px at 90% 0%, #2c338f 0%, transparent 58%),
+        linear-gradient(135deg, #3039b7, #1d2576);
+      color: #fff;
+      min-height: 220px;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      align-items: center;
+      padding: 18px;
+      position: relative;
+    }
+    .hero-banner h1 {
+      font-size: 34px;
+      line-height: 1.2;
+      font-weight: 800;
+      margin-bottom: 8px;
+    }
+    .hero-banner p {
+      color: #d8e0ff;
+      font-size: 14px;
+      line-height: 1.5;
+      max-width: 520px;
+    }
+    .hero-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 11px;
+      font-weight: 700;
+      color: #ffe5cf;
+      border: 1px solid rgba(255, 255, 255, 0.28);
+      border-radius: 999px;
+      padding: 5px 10px;
+      margin-bottom: 10px;
+      background: rgba(255, 255, 255, 0.08);
+    }
+    .hero-side {
+      display: grid;
+      justify-content: end;
+      align-items: center;
+    }
+    .hero-card {
+      width: min(330px, 100%);
+      border-radius: 12px;
+      border: 1px solid rgba(255, 255, 255, 0.24);
+      background: rgba(255, 255, 255, 0.1);
+      padding: 12px;
+      backdrop-filter: blur(2px);
+    }
+    .hero-card h3 { font-size: 15px; margin-bottom: 6px; }
+    .hero-card p { font-size: 12px; color: #d8e0ff; }
+    .title {
+      font-size: 28px;
+      font-weight: 800;
+      letter-spacing: .2px;
+      color: #183868;
+    }
     .sub { color: var(--muted); font-size: 14px; line-height: 1.55; }
     .row { display: flex; gap: 8px; flex-wrap: wrap; }
     a.btn, button.btn {
@@ -1159,8 +1307,8 @@ function buildMemberPage({ title = MEMBER_PAGE_TITLE, promoUrl = MEMBER_PROMO_UR
       justify-content: center;
       gap: 6px;
       border: 0;
-      border-radius: 10px;
-      padding: 10px 13px;
+      border-radius: 999px;
+      padding: 9px 13px;
       color: #fff;
       text-decoration: none;
       font-weight: 700;
@@ -1172,7 +1320,7 @@ function buildMemberPage({ title = MEMBER_PAGE_TITLE, promoUrl = MEMBER_PROMO_UR
     a.btn.alt, button.btn.alt { background: var(--accent); }
     a.btn.small {
       padding: 7px 10px;
-      border-radius: 9px;
+      border-radius: 999px;
       font-size: 12px;
     }
     button.btn.copy { background: var(--brand2); color: #fff; }
@@ -1181,8 +1329,8 @@ function buildMemberPage({ title = MEMBER_PAGE_TITLE, promoUrl = MEMBER_PROMO_UR
     .stat { padding: 12px; border: 1px solid var(--line); border-radius: 12px; background: #fff; }
     .stat .k { color: var(--muted); font-size: 11px; font-weight: 700; }
     .stat .v { font-size: 22px; font-weight: 800; margin-top: 5px; color: #173a67; }
-    .features { padding: 14px; display: grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap: 10px; }
-    .feature { border: 1px solid var(--line); border-radius: 12px; padding: 12px; background: #fff; }
+    .features { padding: 0 2px; display: grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap: 10px; }
+    .feature { border: 1px solid var(--line); border-radius: 12px; padding: 12px; background: #fff; box-shadow: var(--shadow); }
     .feature h3 { font-size: 14px; margin-bottom: 6px; color: #1c3f6b; }
     .feature p { color: var(--muted); font-size: 13px; line-height: 1.45; }
     .catalog { padding: 14px; display: grid; gap: 10px; }
@@ -1208,6 +1356,7 @@ function buildMemberPage({ title = MEMBER_PAGE_TITLE, promoUrl = MEMBER_PROMO_UR
       background: #fff;
       display: grid;
       grid-template-rows: 160px auto;
+      box-shadow: var(--shadow);
     }
     .thumb {
       width: 100%;
@@ -1230,6 +1379,26 @@ function buildMemberPage({ title = MEMBER_PAGE_TITLE, promoUrl = MEMBER_PROMO_UR
     }
     .asset-meta { color: var(--muted); font-size: 12px; line-height: 1.45; }
     .asset-actions { display: flex; flex-wrap: wrap; gap: 6px; }
+    .chip-row {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin-top: 2px;
+    }
+    .chip {
+      border: 1px solid var(--line);
+      background: #fff;
+      border-radius: 999px;
+      padding: 8px 12px;
+      font-size: 12px;
+      font-weight: 700;
+      color: #304d78;
+    }
+    .chip.active {
+      border-color: #ffc08a;
+      background: #fff1e4;
+      color: #9d4f00;
+    }
     .empty { color: var(--muted); font-size: 13px; padding: 12px; border: 1px dashed #ccd8ea; border-radius: 10px; background: #fbfdff; }
     .review-grid {
       padding: 14px;
@@ -1248,11 +1417,27 @@ function buildMemberPage({ title = MEMBER_PAGE_TITLE, promoUrl = MEMBER_PROMO_UR
     .card ul { margin-left: 18px; display: grid; gap: 4px; }
     @media (max-width: 960px) {
       .layout { grid-template-columns: 1fr; }
-      .sidebar { position: static; }
+      .sidebar {
+        position: static;
+        min-height: 0;
+        grid-template-columns: 52px 1fr;
+        align-items: start;
+      }
+      .menu {
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+      }
       .grid { grid-template-columns: repeat(2, minmax(0,1fr)); }
       .features { grid-template-columns: 1fr; }
       .card-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
       .review-grid { grid-template-columns: 1fr; }
+      .hero-banner {
+        grid-template-columns: 1fr;
+        min-height: 0;
+        gap: 12px;
+      }
+      .hero-side {
+        justify-content: start;
+      }
     }
     @media (max-width: 560px) {
       .grid { grid-template-columns: 1fr; }
@@ -1265,31 +1450,67 @@ function buildMemberPage({ title = MEMBER_PAGE_TITLE, promoUrl = MEMBER_PROMO_UR
   <div class="wrap">
     <div class="layout">
       <aside class="panel sidebar">
-        <div class="logo">
-          <h2>LYVA HUB</h2>
-          <p>Member tools dan free asset Roblox</p>
-        </div>
+        <div class="logo-pill">L</div>
         <div class="menu">
-          <button class="active" data-target="section-home">Home</button>
-          <button data-target="section-pc">Asset PC</button>
-          <button data-target="section-hp">Asset HP</button>
-          <button data-target="section-review">Review</button>
-        </div>
-        <div class="row">
-          <a class="btn small" href="${safePromo}" target="_blank" rel="noreferrer">Website</a>
-          ${hasDiscord ? `<a class="btn small secondary" href="${safeDiscord}" target="_blank" rel="noreferrer">Discord</a>` : ""}
+          <button class="active" data-target="section-home"><span>🏠</span><span>Home</span></button>
+          <button data-target="section-pc"><span>🖥️</span><span>Asset PC</span></button>
+          <button data-target="section-hp"><span>📱</span><span>Asset HP</span></button>
+          <button data-target="section-review"><span>🤖</span><span>Review AI</span></button>
         </div>
       </aside>
 
       <main class="content">
+        <div class="panel install-bar">
+          <span>Top up, free asset, dan review AI lebih cepat di ekosistem LYVA</span>
+          <a class="btn small" href="${safePromo}" target="_blank" rel="noreferrer">Install / Cek</a>
+        </div>
+
+        <div class="panel topbar">
+          <div class="brand-wrap">
+            <div class="brand-mark">L</div>
+            <div>${safeTitle}</div>
+          </div>
+          <div class="search-wrap">
+            <input id="globalSearchInput" placeholder="Cari asset, key, atau fitur..." />
+          </div>
+          <div class="top-actions">
+            ${hasDiscord ? `<a class="btn small secondary" href="${safeDiscord}" target="_blank" rel="noreferrer">Discord</a>` : ""}
+            <a class="btn small" href="/dashboard">Masuk Dashboard</a>
+          </div>
+        </div>
+
         <section class="panel section active" id="section-home">
           <div class="hero">
+            <div class="hero-banner">
+              <div>
+                <div class="hero-badge">⚡ Fokus Free Asset + Review AI</div>
+                <h1>Free Asset Roblox<br/>dan AI Review</h1>
+                <p>Koleksi asset gratis untuk PC/HP, plus fitur analisis script AI biar coding kamu lebih aman dan rapi.</p>
+                <div class="row" style="margin-top:10px;">
+                  <button class="btn jump-tab" data-jump="section-pc">Lihat Asset PC</button>
+                  <button class="btn secondary jump-tab" data-jump="section-hp">Lihat Asset HP</button>
+                  <button class="btn alt jump-tab" data-jump="section-review">Coba Review AI</button>
+                </div>
+              </div>
+              <div class="hero-side">
+                <div class="hero-card">
+                  <h3>Kenapa pakai LYVA?</h3>
+                  <p>- Download asset langsung dari web<br/>- Copy ID cepat untuk mobile<br/>- Review AI + rule check untuk script Roblox</p>
+                </div>
+              </div>
+            </div>
             <div class="title">${safeTitle}</div>
             <div class="sub">Etalase digital ala marketplace: pilih kategori, lihat kartu produk, lalu download asset atau copy ID langsung.</div>
             <div class="row">
               <a class="btn" href="${safePromo}" target="_blank" rel="noreferrer">Promo LYVA</a>
               ${hasDiscord ? `<a class="btn secondary" href="${safeDiscord}" target="_blank" rel="noreferrer">Masuk Discord</a>` : ""}
               <a class="btn alt" href="/dashboard">Admin Dashboard</a>
+            </div>
+            <div class="chip-row" id="homeFilterChips">
+              <button class="chip active" data-filter="all">🔥 Lagi Populer</button>
+              <button class="chip" data-filter="pc">Asset PC</button>
+              <button class="chip" data-filter="hp">Asset HP</button>
+              <button class="chip" data-filter="review">Review AI</button>
             </div>
             <div class="grid" id="statGrid"></div>
           </div>
@@ -1361,10 +1582,13 @@ function buildMemberPage({ title = MEMBER_PAGE_TITLE, promoUrl = MEMBER_PROMO_UR
     const hpGrid = document.getElementById("hpGrid");
     const searchPcInput = document.getElementById("searchPcInput");
     const searchHpInput = document.getElementById("searchHpInput");
+    const globalSearchInput = document.getElementById("globalSearchInput");
+    const homeFilterChips = Array.from(document.querySelectorAll("#homeFilterChips .chip"));
     const menuButtons = Array.from(document.querySelectorAll(".menu button"));
+    const jumpButtons = Array.from(document.querySelectorAll(".jump-tab"));
     const sections = Array.from(document.querySelectorAll(".section"));
 
-    let state = { pcAssets: [], hpAssets: [], summary: {} };
+    let state = { pcAssets: [], hpAssets: [], summary: {}, homeFilter: "all" };
 
     function stat(label, value) {
       const el = document.createElement("div");
@@ -1453,7 +1677,9 @@ function buildMemberPage({ title = MEMBER_PAGE_TITLE, promoUrl = MEMBER_PROMO_UR
     }
 
     function renderPcAssets() {
-      const q = String(searchPcInput.value || "").trim().toLowerCase();
+      const qLocal = String(searchPcInput.value || "").trim().toLowerCase();
+      const qGlobal = String(globalSearchInput?.value || "").trim().toLowerCase();
+      const q = qLocal || qGlobal;
       const list = state.pcAssets.filter((item) => {
         if (!q) return true;
         return (String(item.fileName || "") + " " + String(item.baseName || "") + " " + String(item.id || "") + " " + String(item.type || ""))
@@ -1470,7 +1696,9 @@ function buildMemberPage({ title = MEMBER_PAGE_TITLE, promoUrl = MEMBER_PROMO_UR
     }
 
     function renderHpAssets() {
-      const q = String(searchHpInput.value || "").trim().toLowerCase();
+      const qLocal = String(searchHpInput.value || "").trim().toLowerCase();
+      const qGlobal = String(globalSearchInput?.value || "").trim().toLowerCase();
+      const q = qLocal || qGlobal;
       const list = state.hpAssets.filter((item) => {
         if (!q) return true;
         return (String(item.name || "") + " " + String(item.id || "") + " " + String(item.key || "") + " " + String(item.kind || ""))
@@ -1484,6 +1712,22 @@ function buildMemberPage({ title = MEMBER_PAGE_TITLE, promoUrl = MEMBER_PROMO_UR
         return;
       }
       list.forEach((item) => hpGrid.appendChild(createHpCard(item)));
+    }
+
+    function setHomeFilter(filterValue) {
+      state.homeFilter = filterValue;
+      homeFilterChips.forEach((chip) => {
+        chip.classList.toggle("active", chip.dataset.filter === filterValue);
+      });
+      if (filterValue === "pc") {
+        setSection("section-pc");
+      } else if (filterValue === "hp") {
+        setSection("section-hp");
+      } else if (filterValue === "review") {
+        setSection("section-review");
+      } else {
+        setSection("section-home");
+      }
     }
 
     async function loadCatalog() {
@@ -1510,8 +1754,18 @@ function buildMemberPage({ title = MEMBER_PAGE_TITLE, promoUrl = MEMBER_PROMO_UR
     menuButtons.forEach((btn) => {
       btn.addEventListener("click", () => setSection(btn.dataset.target));
     });
+    jumpButtons.forEach((btn) => {
+      btn.addEventListener("click", () => setSection(btn.dataset.jump));
+    });
+    homeFilterChips.forEach((chip) => {
+      chip.addEventListener("click", () => setHomeFilter(chip.dataset.filter || "all"));
+    });
     searchPcInput.addEventListener("input", renderPcAssets);
     searchHpInput.addEventListener("input", renderHpAssets);
+    globalSearchInput?.addEventListener("input", () => {
+      renderPcAssets();
+      renderHpAssets();
+    });
     document.addEventListener("click", async (event) => {
       const target = event.target.closest("[data-copy-id]");
       if (!target) return;
