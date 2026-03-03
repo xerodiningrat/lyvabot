@@ -83,6 +83,11 @@ function sendHtml(res, status, html) {
   res.end(html);
 }
 
+function sendBinary(res, status, buffer, headers = {}) {
+  res.writeHead(status, headers);
+  res.end(buffer);
+}
+
 function safeSingleQuote(value) {
   return String(value || "").replace(/'/g, "'\\''");
 }
@@ -173,6 +178,13 @@ function sanitizeText(value) {
 
 function nowSec() {
   return Math.floor(Date.now() / 1000);
+}
+
+function toAssetContentType(fileName) {
+  const ext = String(path.extname(fileName || "")).toLowerCase();
+  if (ext === ".rbxm" || ext === ".rbxmx") return "application/octet-stream";
+  if (ext === ".lua" || ext === ".luau" || ext === ".txt") return "text/plain; charset=utf-8";
+  return "application/octet-stream";
 }
 
 function buildPage({ appName, authed }) {
@@ -1028,38 +1040,73 @@ function buildMemberPage({ title = MEMBER_PAGE_TITLE, promoUrl = MEMBER_PROMO_UR
   <style>
     @import url("https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&display=swap");
     :root {
-      --bg: #0b1220;
-      --bg-soft: #131e37;
-      --panel: #172440;
-      --line: #2b3f6f;
+      --bg: #0a1224;
+      --bg-soft: #131f3c;
+      --panel: #172847;
+      --line: #2b4372;
       --text: #e9f0ff;
       --muted: #94abd8;
       --brand: #22c55e;
       --brand2: #38bdf8;
-      --accent: #a78bfa;
+      --accent: #f59e0b;
     }
     * { box-sizing: border-box; margin: 0; }
     body {
       font-family: "Nunito", "Segoe UI", sans-serif;
       color: var(--text);
       background:
-        radial-gradient(900px 500px at 5% -15%, #2f4a84 0%, transparent 60%),
-        radial-gradient(900px 500px at 100% 0%, #1c476f 0%, transparent 55%),
+        radial-gradient(900px 500px at 6% -12%, #2b4a86 0%, transparent 60%),
+        radial-gradient(900px 500px at 100% 0%, #1c4a72 0%, transparent 55%),
         var(--bg);
       min-height: 100vh;
-      padding: 22px;
+      padding: 18px;
     }
-    .wrap { max-width: 1200px; margin: 0 auto; display: grid; gap: 14px; }
+    .wrap { max-width: 1320px; margin: 0 auto; }
+    .layout {
+      display: grid;
+      grid-template-columns: 240px minmax(0, 1fr);
+      gap: 12px;
+      align-items: start;
+    }
     .panel {
       border: 1px solid var(--line);
       border-radius: 16px;
       background: linear-gradient(180deg, #162540 0%, #17213b 100%);
       box-shadow: 0 14px 34px rgba(0,0,0,.22);
     }
-    .hero { padding: 20px; display: grid; gap: 10px; }
+    .sidebar { padding: 14px; position: sticky; top: 16px; display: grid; gap: 10px; }
+    .logo {
+      border-radius: 12px;
+      border: 1px solid var(--line);
+      padding: 12px;
+      background: linear-gradient(135deg, #21408a, #7c3aed);
+    }
+    .logo h2 { font-size: 20px; font-weight: 900; }
+    .logo p { margin-top: 4px; font-size: 12px; color: #dce8ff; }
+    .menu { display: grid; gap: 8px; }
+    .menu button {
+      width: 100%;
+      text-align: left;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      padding: 10px 11px;
+      background: #101c35;
+      color: #d8e5ff;
+      font-weight: 800;
+      cursor: pointer;
+    }
+    .menu button.active {
+      background: #1b2d53;
+      border-color: #4c6cb2;
+      color: #ffffff;
+    }
+    .content { display: grid; gap: 12px; }
+    .section { display: none; }
+    .section.active { display: block; }
+    .hero { padding: 18px; display: grid; gap: 10px; }
     .title { font-size: 34px; font-weight: 900; letter-spacing: .2px; }
     .sub { color: var(--muted); font-size: 15px; line-height: 1.55; }
-    .row { display: flex; gap: 9px; flex-wrap: wrap; }
+    .row { display: flex; gap: 8px; flex-wrap: wrap; }
     a.btn, button.btn {
       display: inline-flex;
       align-items: center;
@@ -1076,6 +1123,11 @@ function buildMemberPage({ title = MEMBER_PAGE_TITLE, promoUrl = MEMBER_PROMO_UR
     }
     a.btn.secondary, button.btn.secondary { background: var(--brand2); }
     a.btn.alt, button.btn.alt { background: var(--accent); }
+    a.btn.small {
+      padding: 7px 10px;
+      border-radius: 9px;
+      font-size: 12px;
+    }
     .grid { display: grid; grid-template-columns: repeat(4, minmax(0,1fr)); gap: 10px; }
     .stat { padding: 12px; border: 1px solid var(--line); border-radius: 12px; background: var(--bg-soft); }
     .stat .k { color: var(--muted); font-size: 12px; font-weight: 700; }
@@ -1090,14 +1142,41 @@ function buildMemberPage({ title = MEMBER_PAGE_TITLE, promoUrl = MEMBER_PROMO_UR
     .list-box { border: 1px solid var(--line); border-radius: 12px; background: #101c34; min-height: 220px; padding: 10px; }
     .list-box h4 { margin-bottom: 9px; font-size: 14px; }
     .item-list { display: grid; gap: 8px; max-height: 420px; overflow: auto; }
-    .item { border: 1px solid #2c4270; border-radius: 10px; padding: 9px; background: #0f1a30; }
+    .item {
+      border: 1px solid #2c4270;
+      border-radius: 10px;
+      padding: 9px;
+      background: #0f1a30;
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 8px;
+      align-items: center;
+    }
     .item .name { font-size: 13px; font-weight: 800; }
     .item .meta { margin-top: 3px; color: var(--muted); font-size: 12px; }
     .empty { color: var(--muted); font-size: 13px; }
+    .review-grid {
+      padding: 14px;
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 10px;
+    }
+    .card {
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 12px;
+      background: #101c35;
+    }
+    .card h4 { font-size: 14px; margin-bottom: 6px; }
+    .card p, .card li { color: var(--muted); font-size: 13px; line-height: 1.45; }
+    .card ul { margin-left: 18px; display: grid; gap: 4px; }
     @media (max-width: 960px) {
+      .layout { grid-template-columns: 1fr; }
+      .sidebar { position: static; }
       .grid { grid-template-columns: repeat(2, minmax(0,1fr)); }
       .features { grid-template-columns: 1fr; }
       .cols { grid-template-columns: 1fr; }
+      .review-grid { grid-template-columns: 1fr; }
     }
     @media (max-width: 560px) {
       .grid { grid-template-columns: 1fr; }
@@ -1107,45 +1186,97 @@ function buildMemberPage({ title = MEMBER_PAGE_TITLE, promoUrl = MEMBER_PROMO_UR
 </head>
 <body>
   <div class="wrap">
-    <section class="panel hero">
-      <div class="title">${safeTitle}</div>
-      <div class="sub">Portal member LYVA untuk lihat semua fitur bot, free asset Roblox, Studio Lite ID, dan panduan review script.</div>
-      <div class="row">
-        <a class="btn" href="${safePromo}" target="_blank" rel="noreferrer">Website LYVA</a>
-        ${hasDiscord ? `<a class="btn secondary" href="${safeDiscord}" target="_blank" rel="noreferrer">Join Discord</a>` : ""}
-        <a class="btn alt" href="/dashboard">Admin Dashboard</a>
-      </div>
-      <div class="grid" id="statGrid"></div>
-    </section>
-
-    <section class="panel features">
-      <div class="feature">
-        <h3>Review Script Roblox</h3>
-        <p>Gunakan command Discord: <code>/review paste</code> atau <code>/review ai</code> untuk analisis script dan patch suggestion.</p>
-      </div>
-      <div class="feature">
-        <h3>Free Asset File</h3>
-        <p>Lihat semua asset gratis, model/script, dan ambil file dari bot via command asset di Discord.</p>
-      </div>
-      <div class="feature">
-        <h3>Studio Lite ID</h3>
-        <p>Daftar ID + nama fitur untuk kebutuhan mobile/studio lite langsung dari satu tempat.</p>
-      </div>
-    </section>
-
-    <section class="panel catalog">
-      <input id="searchInput" class="search" placeholder="Cari asset / id / fitur..." />
-      <div class="cols">
-        <div class="list-box">
-          <h4>Daftar Free Asset Script/Model</h4>
-          <div id="assetList" class="item-list"></div>
+    <div class="layout">
+      <aside class="panel sidebar">
+        <div class="logo">
+          <h2>LYVA HUB</h2>
+          <p>Member tools dan free asset Roblox</p>
         </div>
-        <div class="list-box">
-          <h4>Daftar Studio Lite ID</h4>
-          <div id="mobileList" class="item-list"></div>
+        <div class="menu">
+          <button class="active" data-target="section-home">Home</button>
+          <button data-target="section-assets">Assets</button>
+          <button data-target="section-review">Review</button>
         </div>
-      </div>
-    </section>
+        <div class="row">
+          <a class="btn small" href="${safePromo}" target="_blank" rel="noreferrer">Website</a>
+          ${hasDiscord ? `<a class="btn small secondary" href="${safeDiscord}" target="_blank" rel="noreferrer">Discord</a>` : ""}
+        </div>
+      </aside>
+
+      <main class="content">
+        <section class="panel section active" id="section-home">
+          <div class="hero">
+            <div class="title">${safeTitle}</div>
+            <div class="sub">Semua user/member bisa lihat fitur bot, cek daftar asset gratis, ambil file langsung dari web, dan lihat panduan review script.</div>
+            <div class="row">
+              <a class="btn" href="${safePromo}" target="_blank" rel="noreferrer">Promo LYVA</a>
+              ${hasDiscord ? `<a class="btn secondary" href="${safeDiscord}" target="_blank" rel="noreferrer">Masuk Discord</a>` : ""}
+              <a class="btn alt" href="/dashboard">Admin Dashboard</a>
+            </div>
+            <div class="grid" id="statGrid"></div>
+          </div>
+          <div class="features">
+            <div class="feature">
+              <h3>Review Script Roblox</h3>
+              <p>Pakai command /review paste atau /review ai, hasil review fokus security, performa, dan patch.</p>
+            </div>
+            <div class="feature">
+              <h3>Free Asset Download</h3>
+              <p>File .rbxm/.lua bisa di-download langsung dari web tanpa harus request lewat channel Discord.</p>
+            </div>
+            <div class="feature">
+              <h3>Studio Lite ID</h3>
+              <p>Daftar ID dan nama fitur mobile/studio lite selalu tampil otomatis dari data bot.</p>
+            </div>
+          </div>
+        </section>
+
+        <section class="panel section" id="section-assets">
+          <div class="catalog">
+            <input id="searchInput" class="search" placeholder="Cari asset / id / fitur..." />
+            <div class="cols">
+              <div class="list-box">
+                <h4>Daftar Free Asset (Download Langsung)</h4>
+                <div id="assetList" class="item-list"></div>
+              </div>
+              <div class="list-box">
+                <h4>Daftar Studio Lite ID</h4>
+                <div id="mobileList" class="item-list"></div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section class="panel section" id="section-review">
+          <div class="review-grid">
+            <div class="card">
+              <h4>Cara Review Script</h4>
+              <ul>
+                <li>/review paste: rule-based cepat dan stabil.</li>
+                <li>/review ai: tambahan insight AI (kalau kuota ada).</li>
+                <li>Fokus deteksi exploit Roblox (remote trust, nil check, loop berat).</li>
+              </ul>
+            </div>
+            <div class="card">
+              <h4>Tips Biar Aman</h4>
+              <ul>
+                <li>Jangan percaya input client langsung untuk economy/damage.</li>
+                <li>Pakai validasi tipe + range + rate limit.</li>
+                <li>Pakai pcall untuk DataStore agar tidak crash.</li>
+              </ul>
+            </div>
+            <div class="card">
+              <h4>Quick Commands</h4>
+              <p>/asset list, /asset get, /review paste, /review ai, /menu</p>
+            </div>
+            <div class="card">
+              <h4>Butuh Script/Asset Baru?</h4>
+              <p>Request di Discord, nanti asset bisa dimasukkan ke library lalu otomatis muncul di halaman web ini.</p>
+            </div>
+          </div>
+        </section>
+      </main>
+    </div>
   </div>
 
   <script>
@@ -1153,6 +1284,8 @@ function buildMemberPage({ title = MEMBER_PAGE_TITLE, promoUrl = MEMBER_PROMO_UR
     const assetList = document.getElementById("assetList");
     const mobileList = document.getElementById("mobileList");
     const searchInput = document.getElementById("searchInput");
+    const menuButtons = Array.from(document.querySelectorAll(".menu button"));
+    const sections = Array.from(document.querySelectorAll(".section"));
 
     let state = { assets: [], mobile: [], summary: {} };
 
@@ -1177,11 +1310,11 @@ function buildMemberPage({ title = MEMBER_PAGE_TITLE, promoUrl = MEMBER_PROMO_UR
       const mobile = state.mobile.filter((m) => !q || (m.name + " " + m.id + " " + m.kind + " " + m.key).toLowerCase().includes(q));
 
       assetList.innerHTML = assets.length
-        ? assets.map((a) => '<div class="item"><div class="name">' + a.fileName + '</div><div class="meta">type: ' + a.type + ' | size: ' + a.sizeLabel + " | key: " + a.id + "</div></div>").join("")
+        ? assets.map((a) => '<div class="item"><div><div class="name">' + a.fileName + '</div><div class="meta">type: ' + a.type + ' | size: ' + a.sizeLabel + " | key: " + a.id + '</div></div><a class="btn small" href="' + a.downloadUrl + '">Download</a></div>').join("")
         : '<div class="empty">Belum ada data asset.</div>';
 
       mobileList.innerHTML = mobile.length
-        ? mobile.map((m) => '<div class="item"><div class="name">' + m.name + '</div><div class="meta">id: ' + m.id + " | kind: " + m.kind + " | key: " + m.key + "</div></div>").join("")
+        ? mobile.map((m) => '<div class="item"><div><div class="name">' + m.name + '</div><div class="meta">id: ' + m.id + " | kind: " + m.kind + " | key: " + m.key + "</div></div></div>").join("")
         : '<div class="empty">Belum ada data Studio Lite ID.</div>';
     }
 
@@ -1195,6 +1328,19 @@ function buildMemberPage({ title = MEMBER_PAGE_TITLE, promoUrl = MEMBER_PROMO_UR
       renderList();
     }
 
+    function setSection(sectionId) {
+      menuButtons.forEach((btn) => {
+        const active = btn.dataset.target === sectionId;
+        btn.classList.toggle("active", active);
+      });
+      sections.forEach((section) => {
+        section.classList.toggle("active", section.id === sectionId);
+      });
+    }
+
+    menuButtons.forEach((btn) => {
+      btn.addEventListener("click", () => setSection(btn.dataset.target));
+    });
     searchInput.addEventListener("input", renderList);
     loadCatalog().catch(() => {
       assetList.innerHTML = '<div class="empty">Gagal load catalog.</div>';
@@ -1402,16 +1548,58 @@ function startDashboard({ client, rest, clientId, getCommandsBody, syncGuildComm
         const assets = await listAssets().catch(() => []);
         const mobile = await listMobileAssets().catch(() => []);
         const studioLiteCount = mobile.filter((item) => String(item.kind || "").toLowerCase() === "studio-lite").length;
+        const publicAssets = assets.map((item) => ({
+          id: item.id,
+          fileName: item.fileName,
+          baseName: item.baseName,
+          ext: item.ext,
+          type: item.type,
+          sizeBytes: item.sizeBytes,
+          sizeLabel: item.sizeLabel,
+          updatedAt: item.updatedAt,
+          downloadUrl: `/api/public/assets/download?file=${encodeURIComponent(item.fileName)}`,
+        }));
+        const publicMobile = mobile.map((item) => ({
+          key: item.key,
+          name: item.name,
+          id: item.id,
+          kind: item.kind,
+          updatedAt: item.updatedAt,
+        }));
         sendJson(res, 200, {
           ok: true,
-          assets,
-          mobile,
+          assets: publicAssets,
+          mobile: publicMobile,
           summary: {
-            fileCount: assets.length,
-            mobileCount: mobile.length,
+            fileCount: publicAssets.length,
+            mobileCount: publicMobile.length,
             studioLiteCount,
             commandHint: "/review /asset",
           },
+        });
+        return;
+      }
+
+      if (method === "GET" && url.pathname === "/api/public/assets/download") {
+        const fileName = String(url.searchParams.get("file") || "").trim();
+        if (!fileName) {
+          sendJson(res, 400, { ok: false, error: "Parameter file wajib diisi." });
+          return;
+        }
+
+        const assets = await listAssets().catch(() => []);
+        const selected = assets.find((item) => item.fileName === fileName);
+        if (!selected) {
+          sendJson(res, 404, { ok: false, error: "Asset tidak ditemukan." });
+          return;
+        }
+
+        const buffer = await fs.readFile(selected.fullPath);
+        sendBinary(res, 200, buffer, {
+          "Content-Type": toAssetContentType(selected.fileName),
+          "Content-Length": String(buffer.length),
+          "Content-Disposition": `attachment; filename="${encodeURIComponent(selected.fileName)}"`,
+          "Cache-Control": "no-store",
         });
         return;
       }
