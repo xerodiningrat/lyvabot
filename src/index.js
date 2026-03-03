@@ -5,16 +5,21 @@ const assetCommand = require("./commands/asset");
 const menuCommand = require("./commands/menu");
 const verifyCommand = require("./commands/verify");
 const { startDashboard } = require("./dashboard/server");
+const { ingestDiscordMessage, backfillNewsFromClient } = require("./news/feed");
 
 const token = process.env.DISCORD_TOKEN;
 const clientId = process.env.DISCORD_CLIENT_ID;
 const autoSyncGuildCommands = process.env.AUTO_SYNC_GUILD_COMMANDS !== "false";
+const enableMessageContentIntent = process.env.DISCORD_ENABLE_MESSAGE_CONTENT_INTENT === "true";
 if (!token) {
   throw new Error("DISCORD_TOKEN belum di-set di environment.");
 }
 
+const intents = [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMessages];
+if (enableMessageContentIntent) intents.push(GatewayIntentBits.MessageContent);
+
 const client = new Client({
-  intents: [GatewayIntentBits.Guilds],
+  intents,
 });
 
 client.commands = new Collection();
@@ -38,6 +43,20 @@ async function syncGuildCommands(guildId) {
 
 client.once(Events.ClientReady, (c) => {
   console.log(`Bot online as ${c.user.tag}`);
+  if (!enableMessageContentIntent) {
+    console.log("Message Content Intent: OFF (set DISCORD_ENABLE_MESSAGE_CONTENT_INTENT=true jika ingin baca isi pesan penuh).");
+  }
+
+  backfillNewsFromClient(c, 20)
+    .then((result) => {
+      if (!result) return;
+      console.log(
+        `News backfill selesai. Channels: ${result.scannedChannels || 0}, Upserts: ${result.upserts || 0}`,
+      );
+    })
+    .catch((error) => {
+      console.error("News backfill error", error?.message || error);
+    });
 
   if (!autoSyncGuildCommands) {
     console.log("Auto sync guild commands: disabled (AUTO_SYNC_GUILD_COMMANDS=false)");
@@ -68,6 +87,14 @@ client.once(Events.ClientReady, (c) => {
   })().catch((error) => {
     console.error("Auto sync startup error", error);
   });
+});
+
+client.on(Events.MessageCreate, async (message) => {
+  try {
+    await ingestDiscordMessage(message);
+  } catch (error) {
+    console.error("News ingest error", error?.message || error);
+  }
 });
 
 client.on(Events.InteractionCreate, async (interaction) => {

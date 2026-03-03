@@ -1,4 +1,4 @@
-const http = require("http");
+﻿const http = require("http");
 const crypto = require("crypto");
 const fs = require("fs/promises");
 const path = require("path");
@@ -6,6 +6,7 @@ const { spawn } = require("child_process");
 const { Routes } = require("discord.js");
 const { listAssets, saveAssetBuffer, ASSET_DEDUPE_LOG_PATH } = require("../assets/library");
 const { listMobileAssets, addMobileAsset } = require("../assets/mobile-library");
+const { listNewsFeed } = require("../news/feed");
 
 const SESSION_COOKIE = "lyva_dash_session";
 const SESSION_TTL_MS = 1000 * 60 * 60 * 24;
@@ -20,7 +21,13 @@ const SELF_UPDATE_LOG_PATH = String(
 ).trim();
 const MEMBER_PAGE_TITLE = String(process.env.MEMBER_PAGE_TITLE || "LYVA Member Hub").trim();
 const MEMBER_DISCORD_URL = String(process.env.MEMBER_DISCORD_URL || "").trim();
-const MEMBER_PROMO_URL = String(process.env.MEMBER_PROMO_URL || "https://lyvaindonesia.com").trim();
+const MEMBER_PROMO_URL = String(process.env.MEMBER_PROMO_URL || "https://lyvaindonesia.my.id").trim();
+const MEMBER_SITE_URL = String(process.env.MEMBER_SITE_URL || "https://lyvaindonesia.my.id").trim();
+const MEMBER_OLD_HOST = String(process.env.MEMBER_OLD_HOST || "dashboard.lyvaindonesia.my.id").trim().toLowerCase();
+const MEMBER_ADSENSE_CLIENT = String(process.env.MEMBER_ADSENSE_CLIENT || "").trim();
+const MEMBER_AD_SLOT_TOP = String(process.env.MEMBER_AD_SLOT_TOP || "").trim();
+const MEMBER_AD_SLOT_SIDEBAR = String(process.env.MEMBER_AD_SLOT_SIDEBAR || "").trim();
+const MEMBER_AD_SLOT_BOTTOM = String(process.env.MEMBER_AD_SLOT_BOTTOM || "").trim();
 const PUBLIC_PREVIEW_DIR = path.join(process.cwd(), "assets", "previews");
 const PUBLIC_PREVIEW_EXTENSIONS = new Set([".png", ".jpg", ".jpeg", ".webp", ".gif"]);
 
@@ -28,6 +35,33 @@ function toInt(value, fallback) {
   const n = Number(value);
   if (!Number.isFinite(n)) return fallback;
   return Math.floor(n);
+}
+
+function normalizeAdSenseClientId(value) {
+  let client = String(value || "").trim();
+  if (!client) return "";
+  if (/^\d{6,}$/.test(client)) {
+    client = `ca-pub-${client}`;
+  }
+  if (!/^ca-pub-\d{6,}$/.test(client)) {
+    return "";
+  }
+  return client;
+}
+
+function normalizeAdSlot(value) {
+  const slot = String(value || "").trim().replace(/[^0-9]/g, "");
+  if (!slot) return "";
+  if (!/^\d{6,}$/.test(slot)) return "";
+  return slot;
+}
+
+function buildAdsTxtContent() {
+  const adClient = normalizeAdSenseClientId(MEMBER_ADSENSE_CLIENT);
+  if (!adClient) return "";
+  const sellerId = adClient.replace(/^ca-pub-/i, "");
+  if (!sellerId) return "";
+  return `google.com, pub-${sellerId}, DIRECT, f08c47fec0942fa0\n`;
 }
 
 function readCookies(cookieHeader = "") {
@@ -81,7 +115,11 @@ function sendJson(res, status, payload) {
 }
 
 function sendHtml(res, status, html) {
-  res.writeHead(status, { "Content-Type": "text/html; charset=utf-8" });
+  res.writeHead(status, {
+    "Content-Type": "text/html; charset=utf-8",
+    "Cache-Control": "no-store, no-cache, must-revalidate, max-age=0",
+    Pragma: "no-cache",
+  });
   res.end(html);
 }
 
@@ -1070,1085 +1108,1648 @@ function buildPage({ appName, authed }) {
 </html>`;
 }
 
-function buildMemberPage({ title = MEMBER_PAGE_TITLE, promoUrl = MEMBER_PROMO_URL, discordUrl = MEMBER_DISCORD_URL }) {
+function buildMemberPage({
+  title = MEMBER_PAGE_TITLE,
+  promoUrl = MEMBER_PROMO_URL,
+  discordUrl = MEMBER_DISCORD_URL,
+  siteUrl = MEMBER_SITE_URL,
+}) {
   const safeTitle = sanitizeText(title || "LYVA Member Hub");
-  const safePromo = sanitizeText(promoUrl || "#");
-  const safeDiscord = sanitizeText(discordUrl || "#");
   const hasDiscord = Boolean(discordUrl);
+  const promoJs = JSON.stringify(String(promoUrl || "#"));
+  const discordJs = JSON.stringify(String(discordUrl || ""));
+  const siteJs = JSON.stringify(String(siteUrl || ""));
+  const adClient = normalizeAdSenseClientId(MEMBER_ADSENSE_CLIENT);
+  const adSlotTop = normalizeAdSlot(MEMBER_AD_SLOT_TOP);
+  const adSlotSidebar = normalizeAdSlot(MEMBER_AD_SLOT_SIDEBAR);
+  const adSlotBottom = normalizeAdSlot(MEMBER_AD_SLOT_BOTTOM);
+  const adClientJs = JSON.stringify(adClient);
+  const adSlotTopJs = JSON.stringify(adSlotTop);
+  const adSlotSidebarJs = JSON.stringify(adSlotSidebar);
+  const adSlotBottomJs = JSON.stringify(adSlotBottom);
+  const adSenseScript = adClient
+    ? `<script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=${encodeURIComponent(adClient)}" crossorigin="anonymous"></script>`
+    : "";
+  const adSenseMeta = adClient
+    ? `<meta name="google-adsense-account" content="${sanitizeText(adClient)}" />`
+    : "";
 
   return `<!doctype html>
 <html lang="id">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
+  ${adSenseMeta}
   <title>${safeTitle}</title>
+  ${adSenseScript}
   <style>
-    @import url("https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;600;700&family=Sora:wght@400;500;600;700;800&display=swap");
+    @import url("https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&family=Poppins:wght@400;500;600;700&display=swap");
     :root {
-      --bg: #f4f7fd;
-      --bg-soft: #f9fbff;
+      --bg: #f2f5fb;
       --panel: #ffffff;
-      --line: #dbe3f1;
-      --text: #132949;
-      --muted: #667ea2;
-      --brand: #1f36b8;
-      --brand2: #f1577d;
-      --accent: #15b37d;
-      --danger: #ef4444;
-      --shadow: 0 15px 30px rgba(19, 39, 80, 0.08);
+      --line: #d8e0ef;
+      --text: #15264a;
+      --muted: #6f829f;
+      --brand: #212bb1;
+      --brand-soft: #edf1ff;
+      --accent: #2f68d5;
+      --shadow: 0 12px 30px rgba(20, 36, 74, 0.08);
+      --radius: 14px;
     }
     * { box-sizing: border-box; margin: 0; }
+    html, body { min-height: 100%; width: 100%; }
     body {
-      font-family: "Sora", "Segoe UI", sans-serif;
-      color: var(--text);
-      background:
-        radial-gradient(930px 430px at 100% -15%, #d9e4ff 0%, transparent 58%),
-        radial-gradient(850px 420px at -10% 0%, #ffe0e9 0%, transparent 56%),
-        var(--bg);
-      min-height: 100vh;
-      padding: 4px;
-    }
-    .wrap {
-      max-width: 1900px;
-      margin: 0 auto;
-      border: 1px solid var(--line);
-      border-radius: 16px;
-      overflow: hidden;
-      box-shadow: var(--shadow);
-      background: #f7f9ff;
-    }
-    .layout {
-      display: grid;
-      grid-template-columns: 84px minmax(0, 1fr);
-    }
-    .panel {
-      border: 1px solid var(--line);
-      border-radius: 14px;
-      background: var(--panel);
-      box-shadow: var(--shadow);
-    }
-    .sidebar {
-      padding: 10px 0;
-      position: sticky;
-      top: 4px;
-      display: grid;
-      gap: 6px;
-      justify-items: center;
-      align-content: start;
-      min-height: calc(100vh - 10px);
-      border-right: 1px solid var(--line);
-      border-radius: 0;
-      box-shadow: none;
-      background: #f9fbff;
-    }
-    .logo-pill {
-      width: 44px;
-      height: 44px;
-      border-radius: 12px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      background: linear-gradient(145deg, #2443d8, #f1577d);
-      color: #fff;
-      font-family: "Chakra Petch", "Sora", sans-serif;
-      font-weight: 700;
-      font-size: 17px;
-      border: 0;
-      padding: 0;
-      margin-bottom: 8px;
-    }
-    .menu {
-      display: grid;
-      gap: 6px;
-      width: 100%;
-    }
-    .menu button {
-      width: 100%;
-      border: 0;
-      border-left: 4px solid transparent;
-      border-radius: 0;
-      padding: 10px 4px;
-      background: transparent;
-      color: #36507a;
-      font-weight: 600;
-      cursor: pointer;
-      font-size: 12px;
-      line-height: 1.3;
-      text-align: center;
-      display: grid;
-      justify-items: center;
-      gap: 7px;
-    }
-    .menu button::before {
-      content: attr(data-icon);
-      width: 26px;
-      height: 26px;
-      border-radius: 7px;
-      border: 1px solid #cad5ea;
-      background: #fff;
-      display: grid;
-      place-items: center;
-      font-family: "Chakra Petch", "Sora", sans-serif;
-      font-size: 12px;
-      font-weight: 700;
-    }
-    .menu button.active {
-      background: #edf1ff;
-      border-left-color: var(--brand);
-      color: var(--brand);
-    }
-    .content { display: grid; gap: 14px; padding: 0 24px 24px; }
-    .install-strip {
-      border-bottom: 1px solid var(--line);
-      background: linear-gradient(90deg, rgba(241, 87, 125, 0.1), rgba(31, 54, 184, 0.1)), #eaf0fb;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 14px;
-      padding: 10px 20px;
+      font-family: "Poppins", "Segoe UI", sans-serif;
       font-size: 14px;
-      color: #2e4467;
+      color: var(--text);
+      overflow-x: hidden;
+      background:
+        radial-gradient(900px 420px at 110% -20%, #dfe8ff 0%, transparent 55%),
+        radial-gradient(900px 420px at -20% -10%, #f8dfe9 0%, transparent 55%),
+        var(--bg);
     }
-    .install-strip .close {
+    a { color: inherit; }
+
+    .page {
+      max-width: 1400px;
+      margin: 0 auto;
+      padding: 8px 14px 0;
+      min-height: 100vh;
+    }
+
+    .main {
+      min-width: 0;
+      display: grid;
+      align-content: start;
+    }
+    .main-inner {
+      width: 100%;
+      max-width: 1180px;
+      margin: 0 auto;
+      padding: 10px 16px 0;
+      display: grid;
+      gap: 12px;
+    }
+
+    .install {
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      background: linear-gradient(90deg, rgba(33, 43, 177, 0.14), rgba(241, 87, 125, 0.14)), #eef2fb;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 12px;
+      min-height: 48px;
+      padding: 8px 12px;
+      color: #2d466f;
+      font-size: 14px;
+    }
+    .install-close {
       border: 0;
       background: transparent;
+      color: #2d4468;
       font-size: 18px;
       cursor: pointer;
-      color: #304764;
       line-height: 1;
     }
+
     .topbar {
       border: 1px solid var(--line);
-      border-radius: 0 0 12px 12px;
-      box-shadow: none;
-      min-height: 74px;
+      border-radius: 12px;
       background: var(--panel);
+      min-height: 72px;
+      padding: 10px 16px;
       display: flex;
-      justify-content: space-between;
       align-items: center;
-      gap: 18px;
+      gap: 14px;
       flex-wrap: wrap;
-      padding: 10px 24px;
     }
-    .brand-wrap {
+    .brand {
       display: inline-flex;
       align-items: center;
       gap: 10px;
       min-width: 250px;
-      font-family: "Chakra Petch", "Sora", sans-serif;
+      font-family: "Outfit", "Poppins", sans-serif;
+      font-size: 22px;
       font-weight: 700;
-      color: #1b2f73;
+      color: #1a3175;
       text-transform: uppercase;
-      font-size: 23px;
-      line-height: 1;
     }
     .brand-mark {
       width: 34px;
       height: 34px;
       border-radius: 9px;
-      background: linear-gradient(145deg, #233ec8, #f1577d);
-      color: #fff;
       display: grid;
       place-items: center;
-      font-size: 15px;
+      color: #fff;
+      background: linear-gradient(145deg, #2443d8, #f1577d);
       font-weight: 700;
+      font-size: 15px;
     }
-    .search-wrap {
+
+    .search {
       flex: 1;
-      min-width: 280px;
-      max-width: 680px;
+      min-width: 260px;
+      max-width: 640px;
       position: relative;
     }
-    .search-wrap input {
+    .search input {
       width: 100%;
-      border: 1px solid #ccd6ea;
+      border: 1px solid #cad6ec;
       border-radius: 999px;
-      padding: 12px 44px 12px 16px;
-      font-size: 14px;
+      padding: 12px 42px 12px 16px;
       outline: none;
+      font-size: 14px;
+      color: #284065;
+      background: #fff;
     }
-    .search-wrap span {
-      position: absolute;
-      right: 15px;
-      top: 10px;
-      color: #687fa5;
-      font-size: 18px;
-      line-height: 1;
-      pointer-events: none;
-    }
-    .search-wrap input:focus {
-      border-color: #97acd5;
+    .search input:focus {
+      border-color: #9aadd6;
       box-shadow: 0 0 0 3px #e9efff;
     }
-    .top-actions {
-      display: inline-flex;
-      gap: 10px;
-      align-items: center;
-      flex-wrap: wrap;
-    }
-    .section { display: none; animation: up 0.35s ease both; }
-    .section.active { display: block; }
-    .hero {
-      padding: 18px;
-      border: 1px solid var(--line);
-      border-radius: 20px;
-      background: linear-gradient(145deg, #f0f3ff, #f5f8ff);
-      position: relative;
-      overflow: hidden;
-      display: grid;
-      gap: 12px;
-    }
-    .hero::before, .hero::after {
-      content: "";
+    .search .ico {
       position: absolute;
-      width: 34vw;
-      min-width: 240px;
-      max-width: 520px;
-      height: 74%;
-      top: 11%;
-      border-radius: 24px;
-      transform: skewX(-25deg);
-      background: linear-gradient(180deg, rgba(179, 194, 232, 0.2), rgba(179, 194, 232, 0.05));
-      z-index: 0;
-      pointer-events: none;
-    }
-    .hero::before { left: -6%; }
-    .hero::after { right: -6%; }
-    .hero-banner {
-      position: relative;
-      z-index: 1;
-      border-radius: 0;
-      border: 0;
-      background: transparent;
-      min-height: 0;
-      display: grid;
-      grid-template-columns: 1fr minmax(0, 1.6fr) 1fr;
-      gap: 12px;
-      padding: 0;
-      align-items: center;
-    }
-    .hero-slide {
-      min-height: 220px;
-      border-radius: 18px;
-      border: 1px solid #ccdaf4;
-      overflow: hidden;
-      background-size: cover;
-      background-position: center;
-      position: relative;
-      opacity: 0.72;
-      transform: scale(0.95);
-      transition: all 0.35s ease;
-    }
-    .hero-slide.main {
-      min-height: 258px;
-      opacity: 1;
-      transform: scale(1);
-      box-shadow: 0 14px 30px rgba(18, 32, 80, 0.23);
-    }
-    .hero-slide::before {
-      content: "";
-      position: absolute;
-      inset: 0;
-      background: linear-gradient(180deg, rgba(10, 19, 45, 0.25), rgba(10, 19, 45, 0.64));
-    }
-    .hero-copy {
-      position: absolute;
-      left: 14px;
       right: 14px;
-      bottom: 12px;
-      z-index: 2;
-      color: #fff;
-      display: grid;
-      gap: 4px;
-    }
-    .hero-copy .kicker {
-      color: #d8e0ff;
-      font-size: 11px;
-      text-transform: uppercase;
-      letter-spacing: 0.8px;
-      font-weight: 600;
-    }
-    .hero-copy h2, .hero-copy h3 {
-      margin: 0;
-      font-family: "Chakra Petch", "Sora", sans-serif;
-      line-height: 1.08;
-    }
-    .hero-copy h2 { font-size: 28px; }
-    .hero-copy h3 { font-size: 18px; }
-    .hero-copy p { margin: 0; font-size: 12px; color: #dbe4ff; }
-    .hero-btn {
-      margin-top: 6px;
-      width: fit-content;
-      border: 0;
-      border-radius: 999px;
-      padding: 8px 15px;
-      background: var(--brand2);
-      color: #fff;
-      text-decoration: none;
-      font-size: 12px;
-      font-weight: 700;
-      cursor: pointer;
-    }
-    .hero-dots {
-      position: relative;
-      z-index: 1;
-      margin: 0 auto;
-      display: flex;
-      justify-content: center;
-      gap: 6px;
-    }
-    .hero-dot {
-      width: 32px;
-      height: 6px;
-      border-radius: 999px;
-      border: 0;
-      background: #b5bfd4;
-      cursor: pointer;
-    }
-    .hero-dot.active { background: var(--brand2); }
-    .title {
-      margin: 10px 0 4px;
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      font-family: "Chakra Petch", "Sora", sans-serif;
-      font-size: 38px;
-      color: #142f62;
-    }
-    .title::before {
-      content: "!";
-      width: 28px;
-      height: 28px;
-      border-radius: 999px;
-      background: #ff6c73;
-      color: #fff;
-      display: inline-grid;
-      place-items: center;
-      font-weight: 700;
-      font-size: 16px;
-    }
-    .sub { color: var(--muted); font-size: 14px; line-height: 1.55; }
-    .row { display: flex; gap: 8px; flex-wrap: wrap; }
-    a.btn, button.btn {
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      gap: 6px;
-      border: 0;
-      border-radius: 10px;
-      min-height: 34px;
-      padding: 8px 12px;
-      color: #fff;
-      text-decoration: none;
-      font-size: 12px;
-      font-weight: 700;
-      cursor: pointer;
-      background: var(--brand);
-    }
-    a.btn:hover, button.btn:hover { filter: brightness(.96); }
-    a.btn.secondary, button.btn.secondary { background: var(--brand2); }
-    a.btn.alt, button.btn.alt { background: var(--accent); }
-    a.btn.small {
-      border-radius: 999px;
-      min-height: 0;
-      padding: 7px 10px;
-    }
-    button.btn.copy.ok { background: var(--accent); }
-    .grid {
-      margin-top: 4px;
-      display: grid;
-      gap: 10px;
-      grid-template-columns: repeat(4, minmax(0, 1fr));
-    }
-    .stat {
-      border: 1px solid #d8e1f3;
-      border-radius: 14px;
-      background: #fff;
-      padding: 12px;
-    }
-    .stat .k {
-      color: #7d8fb1;
-      font-size: 11px;
-      text-transform: uppercase;
-      font-weight: 600;
-    }
-    .stat .v {
-      margin-top: 6px;
-      font-family: "Chakra Petch", "Sora", sans-serif;
-      font-size: 24px;
-      color: #152f5f;
-      font-weight: 700;
+      top: 10px;
+      color: #7286ab;
+      font-size: 18px;
       line-height: 1;
     }
-    .category-pills {
-      margin: 12px 0 6px;
+
+    .actions {
+      display: inline-flex;
+      gap: 8px;
+      align-items: center;
+      margin-left: auto;
+    }
+    .btn {
+      border: 1px solid var(--brand);
+      border-radius: 999px;
+      padding: 8px 16px;
+      font-size: 14px;
+      font-weight: 700;
+      text-decoration: none;
+      white-space: nowrap;
+      cursor: pointer;
+      line-height: 1.2;
+    }
+    .btn.primary { background: var(--brand); color: #fff; }
+    .btn.outline { background: #fff; color: var(--brand); }
+    .btn.light { border-color: #cfdbf2; color: #37527e; }
+
+    .game-strip {
+      border-radius: 12px;
+      background: #1a22a5;
+      padding: 8px 10px;
       display: flex;
       flex-wrap: wrap;
-      gap: 9px;
+      gap: 4px;
     }
-    .cat-pill {
-      border: 1px solid #c6d2e9;
-      border-radius: 999px;
-      padding: 9px 15px;
-      background: #fff;
-      color: #385174;
-      font-size: 14px;
-      font-weight: 600;
-      cursor: pointer;
-      transition: all 0.2s ease;
-    }
-    .cat-pill.active {
-      background: linear-gradient(140deg, #1d39c4, #f1577d);
+    .game-strip a {
       color: #fff;
-      border-color: transparent;
-      box-shadow: 0 9px 18px rgba(44, 58, 152, 0.26);
-    }
-    .catalog { border: 1px solid var(--line); border-radius: 16px; background: #fff; box-shadow: var(--shadow); padding: 16px; display: grid; gap: 12px; }
-    .search {
-      width: 100%;
-      max-width: 420px;
-      padding: 10px 14px;
+      text-decoration: none;
+      font-size: 12px;
+      font-weight: 600;
       border-radius: 999px;
-      border: 1px solid #cad5ea;
+      padding: 7px 10px;
+    }
+    .game-strip a:hover { background: rgba(255, 255, 255, 0.13); }
+    .section-tabs {
+      border: 1px solid var(--line);
+      border-radius: 12px;
       background: #fff;
-      color: var(--text);
+      padding: 8px 10px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+    .tab-btn {
+      border: 1px solid #cfd9ee;
+      border-radius: 999px;
+      background: #fff;
+      color: #35507d;
+      font-size: 12px;
+      font-weight: 600;
+      min-height: 34px;
+      padding: 7px 13px;
+      cursor: pointer;
+      line-height: 1.2;
+    }
+    .tab-btn.active {
+      border-color: var(--brand);
+      background: var(--brand-soft);
+      color: var(--brand);
+    }
+
+    .section { display: none; }
+    .section.active { display: block; }
+
+    .news {
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      background: #fff;
+      padding: 14px;
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 330px;
+      gap: 14px;
+      align-items: start;
+      box-shadow: var(--shadow);
+    }
+    .news-main {
+      min-width: 0;
+      padding-right: 12px;
+      border-right: 1px solid #e0e7f4;
+      display: grid;
+      align-content: start;
+      grid-auto-rows: max-content;
+      gap: 12px;
+    }
+    .bread {
+      font-size: 12px;
+      color: #7b8eaa;
+      overflow-wrap: anywhere;
+    }
+    .tag {
+      width: fit-content;
+      border-radius: 6px;
+      background: #1a22a5;
+      color: #fff;
+      font-size: 11px;
+      font-weight: 700;
+      padding: 6px 9px;
+      text-transform: uppercase;
+    }
+    .news-title {
+      font-family: "Poppins", "Outfit", sans-serif;
+      font-size: clamp(16px, 1.3vw, 26px);
+      line-height: 1.2;
+      letter-spacing: -0.01em;
+      color: #122249;
+      font-weight: 700;
+      max-width: 100%;
+      overflow-wrap: break-word;
+    }
+    .meta {
+      color: #6e83a6;
+      font-size: 11px;
+      line-height: 1.5;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      align-items: center;
+    }
+    .meta-author {
+      color: #163374;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.01em;
+    }
+    .meta-dot {
+      color: #9aa8bf;
+    }
+    .share {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+    .share-btn {
+      min-width: 88px;
+      border-radius: 3px;
+      border: 0;
+      padding: 6px 8px;
+      color: #fff;
+      text-decoration: none;
+      font-size: 9px;
+      font-weight: 600;
+      background: #2f68d5;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+    }
+    .share-btn.facebook { background: #1c69d4; }
+    .share-btn.twitter { background: #50a1e4; }
+    .share-btn.linkedin { background: #00689f; }
+    .share-btn.share-more {
+      min-width: 32px;
+      width: 32px;
+      padding: 6px 0;
+      background: #f2f4f8;
+      color: #9ca8bc;
+      border: 1px solid #dfe4ef;
+    }
+    .share-ico {
+      font-size: 9px;
+      line-height: 1;
+      font-weight: 700;
+    }
+    .cover {
+      width: 100%;
+      max-height: 250px;
+      object-fit: cover;
+      border: 1px solid #dce5f4;
+      border-radius: 0;
+      background: #edf2fb;
+    }
+    .body {
+      font-size: 13px;
+      color: #314b72;
+      line-height: 1.6;
+      display: grid;
+      gap: 8px;
+    }
+    .post-extra {
+      margin-top: 8px;
+      padding-top: 14px;
+      border-top: 1px solid #e1e7f3;
+      display: grid;
+      gap: 18px;
+    }
+    .extra-share {
+      display: grid;
+      gap: 8px;
+    }
+    .extra-share-title {
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 0.02em;
+      color: #2c3a55;
+      text-transform: uppercase;
+    }
+    .extra-share-list {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+    .extra-pill {
+      min-width: 70px;
+      height: 30px;
+      border-radius: 3px;
+      border: 0;
+      color: #fff;
+      font-size: 11px;
+      font-weight: 600;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      text-decoration: none;
+      padding: 0 10px;
+    }
+    .extra-pill.fb { background: #1c69d4; }
+    .extra-pill.tw { background: #50a1e4; }
+    .extra-pill.in { background: #00689f; }
+    .extra-pill.wa { background: #22b455; }
+    .extra-pill.mail { background: #101318; }
+    .extra-pill.tg { background: #168fd8; }
+    .author-box {
+      display: grid;
+      gap: 8px;
+    }
+    .author-name {
+      font-family: "Poppins", "Outfit", sans-serif;
+      font-size: 18px;
+      font-weight: 700;
+      color: #152b57;
+    }
+    .author-bio {
+      font-size: 13px;
+      line-height: 1.7;
+      color: #3b4f74;
+      max-width: 820px;
+    }
+    .related-wrap {
+      display: grid;
+      gap: 10px;
+    }
+    .related-head {
+      font-size: 16px;
+      font-weight: 700;
+      color: #1a2d56;
+      border-bottom: 1px solid #dfe6f4;
+      padding-bottom: 7px;
+      text-transform: uppercase;
+    }
+    .related-head span {
+      color: #2f3cd8;
+    }
+    .related-grid {
+      display: grid;
+      gap: 10px;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+    .related-card {
+      text-decoration: none;
+      color: inherit;
+      display: grid;
+      gap: 6px;
+      min-width: 0;
+    }
+    .related-card img {
+      width: 100%;
+      height: 95px;
+      border-radius: 10px;
+      object-fit: cover;
+      background: #edf2fb;
+    }
+    .related-title {
+      font-size: 12px;
+      font-weight: 600;
+      line-height: 1.35;
+      color: #263a62;
+      display: -webkit-box;
+      -webkit-line-clamp: 3;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+    }
+    .related-date {
+      font-size: 11px;
+      color: #8b9bb8;
+    }
+
+    .news-side {
+      min-width: 0;
+      display: grid;
+      align-content: start;
+      gap: 12px;
+      overflow: hidden;
+      position: sticky;
+      top: 14px;
+      max-height: calc(100vh - 24px);
+      overflow-y: auto;
+      padding-right: 2px;
+    }
+    .side-heading {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-top: 2px;
+    }
+    .side-heading .line {
+      flex: 1;
+      height: 1px;
+      background: #d8dfeb;
+    }
+    .side-title {
+      font-family: "Poppins", "Outfit", sans-serif;
+      font-size: 16px;
+      line-height: 1.12;
+      color: #263245;
+      letter-spacing: -0.005em;
+      font-weight: 700;
+      white-space: nowrap;
+    }
+    .side-title.latest-heading {
+      font-size: 18px;
+      font-weight: 700;
+    }
+    .side-title.topup-heading {
+      font-size: 18px;
+      font-weight: 700;
+    }
+    .latest-list {
+      display: grid;
+      gap: 0;
+    }
+    .latest-item {
+      border: 0;
+      background: #fff;
+      padding: 12px 0;
+      display: grid;
+      grid-template-columns: 96px minmax(0, 1fr);
+      gap: 10px;
+      text-decoration: none;
+      color: inherit;
+      min-width: 0;
+      max-width: 100%;
+      box-sizing: border-box;
+      border-bottom: 1px solid #e4e9f2;
+    }
+    .latest-item img {
+      width: 96px;
+      height: 60px;
+      border: 0;
+      border-radius: 8px;
+      object-fit: cover;
+      background: #edf2fb;
+    }
+    .latest-copy {
+      min-width: 0;
+      overflow: hidden;
+      display: grid;
+      gap: 4px;
+      align-content: start;
+    }
+    .latest-title {
+      font-size: 13px;
+      font-weight: 600;
+      color: #212a39;
+      line-height: 1.3;
+      overflow-wrap: anywhere;
+      word-break: break-word;
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+    }
+    .latest-date {
+      font-size: 11px;
+      color: #9ba7bc;
+    }
+    .topics {
+      display: grid;
+      gap: 12px;
+    }
+    .topics a {
+      border: 1px solid #2642cb;
+      border-radius: 18px;
+      text-decoration: none;
+      color: #242d3d;
+      text-align: center;
+      padding: 10px 10px;
+      font-size: 12px;
+      font-weight: 500;
+      line-height: 1.2;
+      background: #fff;
+    }
+    .ad-wrap {
+      width: 100%;
+      max-width: 100%;
+      border: 1px solid #d8e2f2;
+      border-radius: 10px;
+      background: #f8fbff;
+      padding: 8px;
+      overflow: hidden;
+    }
+    .ad-wrap .adsbygoogle {
+      width: 100%;
+      max-width: 100%;
+    }
+    .ad-main-top {
+      margin-top: 2px;
+    }
+    .ad-main-bottom {
+      margin-top: 10px;
+    }
+    .ad-side {
+      margin-top: 4px;
+    }
+
+    .panel {
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      background: #fff;
+      padding: 16px;
+      box-shadow: var(--shadow);
+      display: grid;
+      gap: 12px;
+    }
+    .head {
+      font-family: "Poppins", "Outfit", sans-serif;
+      font-size: 25px;
+      color: #1a3263;
+      letter-spacing: -0.01em;
+    }
+    .search-inline {
+      width: 100%;
+      max-width: 460px;
+      border: 1px solid #cad6ec;
+      border-radius: 999px;
+      padding: 10px 14px;
       outline: none;
       font-size: 14px;
+      color: #294267;
     }
-    .search:focus { border-color: #96a8d2; box-shadow: 0 0 0 3px #e9efff; }
-    .card-grid, .popular-grid {
+    .search-inline:focus {
+      border-color: #99add6;
+      box-shadow: 0 0 0 3px #e9efff;
+    }
+
+    .asset-grid {
       display: grid;
       gap: 14px;
-      grid-template-columns: repeat(5, minmax(0, 1fr));
+      grid-template-columns: repeat(4, minmax(0, 1fr));
     }
     .asset-card {
       border: 1px solid #d9e3f3;
       border-radius: 14px;
-      overflow: hidden;
       background: #fff;
-      display: grid;
-      grid-template-rows: 176px auto;
-      box-shadow: 0 11px 20px rgba(24, 41, 80, 0.06);
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      height: auto;
+      min-width: 0;
     }
-    .thumb {
+    .asset-thumb {
       width: 100%;
-      height: 176px;
+      height: 128px;
+      flex: 0 0 128px;
       object-fit: cover;
-      display: block;
-      background: #edf2fb;
-      border-bottom: 1px solid #dbe4f4;
+      background: #eef3fb;
+      border-bottom: 1px solid #dce6f5;
     }
     .asset-body {
-      padding: 11px 12px 13px;
-      display: grid;
-      gap: 8px;
+      padding: 10px;
+      display: flex;
+      flex-direction: column;
+      gap: 7px;
+      min-width: 0;
     }
     .asset-name {
-      font-family: "Chakra Petch", "Sora", sans-serif;
-      font-size: 24px;
-      line-height: 1.18;
+      font-family: "Poppins", "Outfit", sans-serif;
+      font-size: 14px;
+      line-height: 1.2;
       color: #132d5a;
-      min-height: 56px;
-      word-break: break-word;
       font-weight: 700;
+      overflow-wrap: anywhere;
+      word-break: break-word;
+      display: -webkit-box;
+      -webkit-line-clamp: 3;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
     }
-    .asset-meta { color: #6e82a8; font-size: 12px; line-height: 1.45; min-height: 33px; }
-    .asset-actions { display: flex; flex-wrap: wrap; gap: 6px; }
-    .empty { color: #66799d; font-size: 13px; padding: 14px; border: 1px dashed #ced9ed; border-radius: 12px; background: #fafdff; }
-    .hide { display: none !important; }
-    @keyframes up {
-      from { opacity: 0; transform: translateY(8px); }
-      to { opacity: 1; transform: translateY(0); }
+    .asset-meta {
+      font-size: 11px;
+      color: #6d82a7;
+      line-height: 1.35;
+      overflow-wrap: anywhere;
+      display: -webkit-box;
+      -webkit-line-clamp: 1;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
     }
-    .review-grid {
-      border: 1px solid var(--line);
-      border-radius: 16px;
-      background: #fff;
-      box-shadow: var(--shadow);
-      padding: 14px;
+    .asset-actions {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin-top: auto;
+    }
+    .action {
+      border: 0;
+      border-radius: 10px;
+      min-height: 30px;
+      padding: 6px 10px;
+      background: #1d39bf;
+      color: #fff;
+      text-decoration: none;
+      font-size: 11px;
+      font-weight: 700;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: fit-content;
+    }
+    .action.ok { background: #16a267; }
+    .asset-actions .action {
+      max-width: 100%;
+    }
+
+    .cards {
       display: grid;
-      grid-template-columns: repeat(3, minmax(0, 1fr));
       gap: 12px;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
     }
     .card {
       border: 1px solid #d9e3f3;
       border-radius: 12px;
-      padding: 12px;
       background: #fbfcff;
+      padding: 12px;
+      display: grid;
+      gap: 7px;
+      min-width: 0;
     }
-    .card h4 { font-size: 16px; color: #203b72; }
-    .card p, .card li { color: #63779e; font-size: 13px; line-height: 1.45; }
+    .card h4 {
+      font-size: 16px;
+      color: #213a72;
+      font-weight: 700;
+    }
+    .card p,
+    .card li {
+      font-size: 13px;
+      color: #60759c;
+      line-height: 1.45;
+      overflow-wrap: anywhere;
+    }
     .card ul { margin-left: 18px; display: grid; gap: 4px; }
-    @media (max-width: 1280px) {
-      .card-grid, .popular-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
-      .asset-name { font-size: 20px; min-height: 46px; }
+
+    .empty {
+      border: 1px dashed #cfd9eb;
+      border-radius: 12px;
+      background: #fbfdff;
+      padding: 14px;
+      font-size: 13px;
+      color: #66799d;
     }
-    @media (max-width: 1060px) {
-      .wrap { border-radius: 0; }
-      .layout { grid-template-columns: 1fr; }
-      .sidebar {
-        position: static;
-        min-height: 0;
-        grid-template-columns: 60px repeat(4, minmax(0, 1fr));
-        align-items: center;
-        padding: 8px;
+    .site-footer {
+      margin-top: 16px;
+      width: auto;
+      margin-left: calc(50% - 50vw);
+      margin-right: calc(50% - 50vw);
+      border-radius: 0;
+      overflow: hidden;
+      background: #030711;
+      color: #edf2ff;
+      border-top: 1px solid #101728;
+      border-bottom: 1px solid #101728;
+      border-left: 0;
+      border-right: 0;
+    }
+    .site-footer a {
+      color: #ffffff;
+      text-decoration: none;
+    }
+    .footer-top {
+      padding: 22px max(18px, calc((100vw - 1180px) / 2));
+      display: grid;
+      gap: 18px;
+      grid-template-columns: 1.4fr 1fr 1fr 1.2fr;
+    }
+    .footer-col {
+      display: grid;
+      align-content: start;
+      gap: 10px;
+      min-width: 0;
+    }
+    .footer-brand {
+      font-family: "Outfit", "Poppins", sans-serif;
+      font-size: 26px;
+      font-weight: 800;
+      letter-spacing: 0.01em;
+    }
+    .footer-text {
+      font-size: 13px;
+      line-height: 1.7;
+      color: #c3cce4;
+      max-width: 360px;
+    }
+    .footer-social {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+    .footer-social a {
+      width: 34px;
+      height: 34px;
+      border-radius: 999px;
+      background: #1e2434;
+      display: grid;
+      place-items: center;
+      font-size: 13px;
+      font-weight: 700;
+    }
+    .footer-title {
+      font-size: 14px;
+      font-weight: 700;
+      text-transform: uppercase;
+      line-height: 1.3;
+    }
+    .footer-promo {
+      display: grid;
+      gap: 10px;
+    }
+    .footer-promo-item {
+      display: grid;
+      grid-template-columns: 86px minmax(0, 1fr);
+      gap: 8px;
+      text-decoration: none;
+      border-bottom: 1px solid #202942;
+      padding-bottom: 10px;
+    }
+    .footer-promo-item img {
+      width: 86px;
+      height: 56px;
+      border-radius: 8px;
+      object-fit: cover;
+      background: #10182e;
+    }
+    .footer-promo-title {
+      font-size: 13px;
+      font-weight: 600;
+      line-height: 1.4;
+      color: #eff3ff;
+    }
+    .footer-date {
+      font-size: 11px;
+      color: #8f9dbc;
+    }
+    .footer-list {
+      margin: 0;
+      padding-left: 18px;
+      display: grid;
+      gap: 6px;
+      font-size: 13px;
+      color: #e9efff;
+    }
+    .footer-bottom {
+      border-top: 1px solid #1a2236;
+      min-height: 52px;
+      display: grid;
+      place-items: center;
+      font-size: 13px;
+      color: #93a0bc;
+      text-align: center;
+      padding: 10px max(18px, calc((100vw - 1180px) / 2));
+    }
+    .hide { display: none !important; }
+
+    @media (max-width: 1320px) {
+      .asset-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+      .side-title { font-size: 15px; }
+      .side-title.latest-heading { font-size: 17px; }
+      .side-title.topup-heading { font-size: 17px; }
+      .topics a { font-size: 12px; }
+      .footer-top { grid-template-columns: 1fr 1fr; }
+    }
+    @media (max-width: 1080px) {
+      .main-inner { padding: 8px 10px 0; }
+      .news {
+        grid-template-columns: 1fr;
+        gap: 12px;
+      }
+      .news-main {
         border-right: 0;
-        border-bottom: 1px solid var(--line);
+        padding-right: 0;
       }
-      .logo-pill { margin: 0; }
-      .menu { grid-template-columns: repeat(4, minmax(0, 1fr)); }
-      .menu button {
-        border-left: 0;
-        border-bottom: 3px solid transparent;
-        border-radius: 0;
-        padding: 10px 2px;
+      .side-title { font-size: 15px; }
+      .side-title.latest-heading { font-size: 16px; }
+      .side-title.topup-heading { font-size: 16px; }
+      .topics a { font-size: 12px; }
+      .news-side {
+        position: static;
+        top: auto;
+        max-height: none;
+        overflow: visible;
+        padding-right: 0;
       }
-      .menu button.active { border-bottom-color: var(--brand); }
-      .content { padding: 0 12px 12px; }
-      .topbar { padding: 10px 12px; gap: 10px; }
-      .brand-wrap { min-width: 0; font-size: 19px; }
-      .hero-banner { grid-template-columns: 1fr; }
-      .hero-slide { min-height: 180px; opacity: 1; transform: scale(1); }
-      .hero-slide.main { min-height: 210px; }
-      .hero-slide.side { display: none; }
-      .grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-      .card-grid, .popular-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
-      .review-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .asset-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .cards { grid-template-columns: 1fr; }
+      .related-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .footer-top { grid-template-columns: 1fr 1fr; }
     }
     @media (max-width: 760px) {
-      body { padding: 0; }
-      .install-strip { padding: 8px 10px; gap: 8px; font-size: 12px; }
-      .top-actions { width: 100%; justify-content: flex-end; }
-      .card-grid, .popular-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-      .title { font-size: 28px; }
-      .review-grid { grid-template-columns: 1fr; }
+      .install {
+        font-size: 12px;
+        gap: 8px;
+        padding: 8px;
+      }
+      .actions {
+        width: 100%;
+        justify-content: flex-start;
+        margin-left: 0;
+      }
+      .brand { min-width: 0; font-size: 19px; }
+      .game-strip { padding: 8px 8px; }
+      .game-strip a { font-size: 12px; padding: 6px 9px; }
+      .news-title { font-size: 18px; }
+      .side-title { font-size: 14px; }
+      .side-title.latest-heading { font-size: 15px; }
+      .side-title.topup-heading { font-size: 15px; }
+      .latest-title { font-size: 12px; }
+      .topics a { font-size: 12px; padding: 9px 10px; }
+      .related-grid { grid-template-columns: 1fr; }
+      .footer-top { grid-template-columns: 1fr; }
+      .asset-grid {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 8px;
+      }
+      .asset-card {
+        border-radius: 10px;
+        min-height: 0;
+      }
+      .asset-thumb {
+        height: 72px;
+        flex-basis: 72px;
+      }
+      .asset-body {
+        padding: 8px;
+        gap: 5px;
+      }
+      .asset-name {
+        font-size: 11px;
+      }
+      .asset-meta {
+        font-size: 10px;
+        -webkit-line-clamp: 1;
+      }
+      .action {
+        width: 100%;
+        min-height: 26px;
+        font-size: 10px;
+        padding: 4px 8px;
+        border-radius: 8px;
+      }
     }
     @media (max-width: 460px) {
-      .sidebar { grid-template-columns: 1fr 1fr; }
-      .menu { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-      .grid, .card-grid, .popular-grid { grid-template-columns: 1fr; }
-      .asset-name { font-size: 18px; min-height: 0; }
-      .top-actions { justify-content: flex-start; }
+      .asset-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+      .asset-card {
+        min-height: 0;
+      }
+      .asset-thumb {
+        height: 64px;
+        flex-basis: 64px;
+      }
+      .asset-name { font-size: 10px; }
+      .asset-meta { font-size: 9px; }
+      .action {
+        min-height: 24px;
+        font-size: 9px;
+        padding: 3px 6px;
+      }
+      .latest-item { grid-template-columns: 92px minmax(0, 1fr); }
+      .latest-item img { width: 92px; height: 60px; }
+      .news-title { font-size: 16px; }
+      .share-btn { min-width: 82px; }
+      .topics a { font-size: 12px; }
     }
   </style>
 </head>
 <body>
-  <div class="wrap">
-    <div class="layout">
-      <aside class="sidebar">
-        <div class="logo-pill">LY</div>
-        <div class="menu">
-          <button class="active" data-target="section-home" data-icon="H">Home</button>
-          <button data-target="section-pc" data-icon="T">Transaksi</button>
-          <button data-target="section-hp" data-icon="P">Promo</button>
-          <button data-target="section-review" data-icon="G">Hadiahku</button>
-        </div>
-      </aside>
+  <div id="app" style="padding:16px;font-family:Arial,sans-serif;color:#1f2f52;">Memuat halaman...</div>
 
-      <main class="content">
-        <div id="installStrip" class="install-strip">
-          <button id="closeInstallStrip" class="close" type="button">x</button>
-          <span>Top up cepat dengan instal aplikasi ${safeTitle} di komputer kamu</span>
-          <a class="btn small" href="${safePromo}" target="_blank" rel="noreferrer">Install</a>
-        </div>
-
-        <div class="topbar">
-          <div class="brand-wrap">
-            <div class="brand-mark">L</div>
-            <div>${safeTitle}</div>
-          </div>
-          <div class="search-wrap">
-            <input id="globalSearchInput" placeholder="Cari asset, key, atau fitur..." />
-            <span>o</span>
-          </div>
-          <div class="top-actions">
-            ${hasDiscord ? `<a class="btn small secondary" href="${safeDiscord}" target="_blank" rel="noreferrer">Discord</a>` : `<span class="btn small secondary">ID</span>`}
-            <a class="btn small" href="/dashboard">Masuk</a>
-          </div>
-        </div>
-
-        <section class="section active" id="section-home">
-          <div class="hero">
-            <div class="hero-banner">
-              <article id="heroLeft" class="hero-slide side">
-                <div class="hero-copy">
-                  <div class="kicker" data-role="kicker"></div>
-                  <h3 data-role="title"></h3>
-                  <p data-role="meta"></p>
-                </div>
-              </article>
-              <article id="heroMain" class="hero-slide main">
-                <div class="hero-copy">
-                  <div class="kicker" data-role="kicker"></div>
-                  <h2 data-role="title"></h2>
-                  <p data-role="meta"></p>
-                  <a href="#" class="hero-btn" data-role="action">Lihat Sekarang</a>
-                </div>
-              </article>
-              <article id="heroRight" class="hero-slide side">
-                <div class="hero-copy">
-                  <div class="kicker" data-role="kicker"></div>
-                  <h3 data-role="title"></h3>
-                  <p data-role="meta"></p>
-                </div>
-              </article>
-            </div>
-            <div id="heroDots" class="hero-dots"></div>
-            <div class="grid" id="statGrid"></div>
-          </div>
-          <div id="categoryPills" class="category-pills"></div>
-          <div class="title">Lagi Populer</div>
-          <div id="popularGrid" class="popular-grid"></div>
-        </section>
-
-        <section class="section" id="section-pc">
-          <div class="catalog">
-            <input id="searchPcInput" class="search" placeholder="Cari asset PC..." />
-            <div id="pcGrid" class="card-grid"></div>
-          </div>
-        </section>
-
-        <section class="section" id="section-hp">
-          <div class="catalog">
-            <input id="searchHpInput" class="search" placeholder="Cari asset HP / studio lite..." />
-            <div id="hpGrid" class="card-grid"></div>
-          </div>
-        </section>
-
-        <section class="section" id="section-review">
-          <div class="review-grid">
-            <div class="card">
-              <h4>Cara Review Script</h4>
-              <ul>
-                <li>/review paste: rule-based cepat dan stabil.</li>
-                <li>/review ai: tambahan insight AI (kalau kuota ada).</li>
-                <li>Fokus deteksi exploit Roblox (remote trust, nil check, loop berat).</li>
-              </ul>
-            </div>
-            <div class="card">
-              <h4>Tips Biar Aman</h4>
-              <ul>
-                <li>Jangan percaya input client langsung untuk economy/damage.</li>
-                <li>Pakai validasi tipe + range + rate limit.</li>
-                <li>Pakai pcall untuk DataStore agar tidak crash.</li>
-              </ul>
-            </div>
-            <div class="card">
-              <h4>Quick Commands</h4>
-              <p>/asset list, /asset get, /review paste, /review ai, /menu</p>
-            </div>
-            <div class="card">
-              <h4>Butuh Script/Asset Baru?</h4>
-              <p>Request di Discord, nanti asset bisa dimasukkan ke library lalu otomatis muncul di halaman web ini.</p>
-            </div>
-          </div>
-        </section>
-      </main>
-    </div>
-  </div>
-
+  <script
+    crossorigin
+    src="https://unpkg.com/react@18/umd/react.production.min.js"
+    onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/npm/react@18/umd/react.production.min.js';"
+  ></script>
+  <script
+    crossorigin
+    src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"
+    onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/npm/react-dom@18/umd/react-dom.production.min.js';"
+  ></script>
   <script>
-    const statGrid = document.getElementById("statGrid");
-    const popularGrid = document.getElementById("popularGrid");
-    const categoryPills = document.getElementById("categoryPills");
-    const pcGrid = document.getElementById("pcGrid");
-    const hpGrid = document.getElementById("hpGrid");
-    const searchPcInput = document.getElementById("searchPcInput");
-    const searchHpInput = document.getElementById("searchHpInput");
-    const globalSearchInput = document.getElementById("globalSearchInput");
-    const installStrip = document.getElementById("installStrip");
-    const closeInstallStrip = document.getElementById("closeInstallStrip");
-    const heroLeft = document.getElementById("heroLeft");
-    const heroMain = document.getElementById("heroMain");
-    const heroRight = document.getElementById("heroRight");
-    const heroDots = document.getElementById("heroDots");
-    const menuButtons = Array.from(document.querySelectorAll(".menu button"));
-    const sections = Array.from(document.querySelectorAll(".section"));
-    const categories = [
-      { id: "all", label: "Lagi Populer" },
-      { id: "pc", label: "Top Up Langsung" },
-      { id: "hp", label: "Baru Rilis" },
-      { id: "studio", label: "Top Up Login" },
-      { id: "script", label: "Voucher" },
-      { id: "model", label: "Pulsa" },
-      { id: "misc", label: "Entertainment" },
+    if (location.protocol !== "https:" && !/^(localhost|127\\.0\\.0\\.1)$/i.test(location.hostname)) {
+      location.replace("https://" + location.host + location.pathname + location.search + location.hash);
+    }
+
+    function showFatal(msg) {
+      const rootEl = document.getElementById("app");
+      if (!rootEl) return;
+      rootEl.innerHTML = "<div style='padding:16px;font-family:Arial,sans-serif;color:#1f2f52'>"
+        + "<b>Terjadi kendala saat memuat halaman.</b><br/>"
+        + String(msg || "Unknown error")
+        + "<br/><br/>Coba refresh (Ctrl+F5)."
+        + "</div>";
+    }
+
+    window.addEventListener("error", (ev) => {
+      if (!ev) return;
+      showFatal(ev.message || "Script error");
+    });
+
+    window.addEventListener("unhandledrejection", (ev) => {
+      const reason = ev && ev.reason ? (ev.reason.message || String(ev.reason)) : "Promise rejected";
+      showFatal(reason);
+    });
+
+    if (!window.React || !window.ReactDOM || !window.ReactDOM.createRoot) {
+      showFatal("Library frontend tidak berhasil dimuat.");
+    } else {
+    const { useEffect, useMemo, useState } = window.React;
+    const createRoot = window.ReactDOM.createRoot;
+    const h = React.createElement;
+    const PROMO_URL = ${promoJs};
+    const DISCORD_URL = ${discordJs};
+    const SITE_URL = ${siteJs};
+    const HAS_DISCORD = ${hasDiscord ? "true" : "false"};
+    const ADSENSE_CLIENT = ${adClientJs};
+    const ADS_SLOT_TOP = ${adSlotTopJs};
+    const ADS_SLOT_SIDEBAR = ${adSlotSidebarJs};
+    const ADS_SLOT_BOTTOM = ${adSlotBottomJs};
+    const ADSENSE_ENABLED = Boolean(ADSENSE_CLIENT);
+
+    const SECTIONS = [
+      { id: "home", label: "Home" },
+      { id: "asset", label: "Asset" },
+      { id: "review", label: "Review AI" },
+      { id: "hadiah", label: "Hadiahku" },
     ];
 
-    let state = { pcAssets: [], hpAssets: [], summary: {}, activeCategory: "all", heroItems: [], slideIndex: 0, slideTimer: null };
+    const GAME_TAGS = [
+      "Mobile Legends", "Free Fire", "Honor of Kings", "PUBG Mobile", "Roblox", "Genshin Impact", "Valorant",
+    ];
 
-    function stat(label, value) {
-      const el = document.createElement("div");
-      el.className = "stat";
-      el.innerHTML = '<div class="k">' + label + '</div><div class="v">' + value + "</div>";
-      return el;
+    const TOPUP_TAGS = [
+      "MLBB",
+      "Free Fire",
+      "Genshin Impact",
+      "Koin Tiktok Gift Card",
+      "Honkai Star Rail",
+      "Bigo Live",
+      "Steam Wallet",
+      "Valorant",
+      "Roblox",
+    ];
+    const FOOTER_OVERSEAS = ["Malaysia", "Philippines", "Singapore", "USA"];
+    const FOOTER_TRUSTED = ["Joytify US", "Joytify Brazil", "Itemku"];
+    const FOOTER_TOPUP = ["Top Up Mobile Legends", "Top Up Free Fire", "Top Up Roblox"];
+
+    function getSiteOrigin() {
+      let raw = String(SITE_URL || "").trim();
+      while (raw.endsWith("/")) raw = raw.slice(0, -1);
+      if (raw) return raw;
+      raw = String(location.origin || "").trim();
+      while (raw.endsWith("/")) raw = raw.slice(0, -1);
+      return raw;
     }
 
-    function renderStats() {
-      statGrid.innerHTML = "";
-      statGrid.appendChild(stat("Total Asset File", String(state.summary.fileCount || 0)));
-      statGrid.appendChild(stat("Total Mobile ID", String(state.summary.mobileCount || 0)));
-      statGrid.appendChild(stat("Studio Lite ID", String(state.summary.studioLiteCount || 0)));
-      statGrid.appendChild(stat("Bot Command", String(state.summary.commandHint || "/review /asset")));
+    function toSiteUrl(pathname = "/") {
+      const origin = getSiteOrigin();
+      const path = String(pathname || "/");
+      const normalizedPath = path.startsWith("/") ? path : ("/" + path);
+      return origin + normalizedPath;
     }
 
-    function fallbackThumb(label, hue) {
-      const text = String(label || "LYVA").slice(0, 22);
-      const svg =
-        '<svg xmlns="http://www.w3.org/2000/svg" width="640" height="360">' +
-        '<defs><linearGradient id="g" x1="0" x2="1" y1="0" y2="1">' +
-        '<stop offset="0%" stop-color="hsl(' + hue + ',65%,52%)"/>' +
-        '<stop offset="100%" stop-color="hsl(' + ((hue + 48) % 360) + ',70%,38%)"/>' +
-        '</linearGradient></defs>' +
-        '<rect width="640" height="360" fill="url(#g)"/>' +
-        '<text x="32" y="188" fill="#fff" font-size="34" font-family="Chakra Petch,Sora,sans-serif" font-weight="700">' +
-        text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;") +
-        "</text></svg>";
-      return "data:image/svg+xml;utf8," + encodeURIComponent(svg);
+    function publicPromoUrl() {
+      const raw = String(PROMO_URL || "").trim();
+      if (!raw || raw === "#") return toSiteUrl("/");
+      if (/dashboard\\.lyvaindonesia\\.my\\.id/i.test(raw)) return toSiteUrl("/");
+      return raw;
+    }
+
+    function shareHref(kind, articleTitle) {
+      const targetUrl = toSiteUrl("/");
+      const encodedUrl = encodeURIComponent(targetUrl);
+      const encodedTitle = encodeURIComponent(String(articleTitle || "").trim());
+      if (kind === "facebook") return "https://www.facebook.com/sharer/sharer.php?u=" + encodedUrl;
+      if (kind === "twitter") return "https://twitter.com/intent/tweet?url=" + encodedUrl + "&text=" + encodedTitle;
+      if (kind === "linkedin") return "https://www.linkedin.com/sharing/share-offsite/?url=" + encodedUrl;
+      if (kind === "whatsapp") return "https://wa.me/?text=" + encodeURIComponent(String(articleTitle || "").trim() + " " + targetUrl);
+      if (kind === "email") return "mailto:?subject=" + encodedTitle + "&body=" + encodedUrl;
+      if (kind === "telegram") return "https://t.me/share/url?url=" + encodedUrl + "&text=" + encodedTitle;
+      return targetUrl;
     }
 
     function normalize(text) {
       return String(text || "").trim().toLowerCase();
     }
 
-    function toPcPopular(item) {
-      return {
-        source: "pc",
-        title: item.baseName || item.fileName || "Asset PC",
-        meta: "Type: " + (item.type || "-") + " | Size: " + (item.sizeLabel || "-"),
+    function prettyTitle(text, fallback) {
+      const source = String(text || "").trim();
+      if (!source) return String(fallback || "Asset");
+      const noExt = source.replace(/\\.[a-z0-9]{1,6}$/i, "");
+      const normalized = noExt
+        .replace(/[_-]+/g, " ")
+        .replace(/\\s+/g, " ")
+        .trim();
+      if (!normalized) return String(fallback || "Asset");
+      return normalized.length > 54 ? normalized.slice(0, 54).trim() + "..." : normalized;
+    }
+
+    function escapeXml(text) {
+      return String(text || "")
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&apos;");
+    }
+
+    function fallbackThumb(label, hue) {
+      const svg =
+        '<svg xmlns="http://www.w3.org/2000/svg" width="960" height="540">' +
+          '<defs><linearGradient id="g" x1="0" x2="1" y1="0" y2="1">' +
+            '<stop offset="0%" stop-color="hsl(' + hue + ',70%,52%)"/>' +
+            '<stop offset="100%" stop-color="hsl(' + ((hue + 54) % 360) + ',68%,40%)"/>' +
+          '</linearGradient></defs>' +
+          '<rect width="960" height="540" fill="url(#g)"/>' +
+        '</svg>';
+      return 'data:image/svg+xml;utf8,' + encodeURIComponent(svg);
+    }
+
+    function dateLabel(value) {
+      const date = value ? new Date(value) : new Date();
+      if (!Number.isFinite(date.getTime())) {
+        return new Date().toLocaleDateString("id-ID", { day: "2-digit", month: "2-digit", year: "numeric" });
+      }
+      return date.toLocaleDateString("id-ID", { day: "2-digit", month: "2-digit", year: "numeric" });
+    }
+
+    function mapCatalog(data) {
+      const pc = Array.isArray(data?.pcAssets) ? data.pcAssets : [];
+      const hp = Array.isArray(data?.hpAssets) ? data.hpAssets : [];
+      const news = Array.isArray(data?.newsFeed) ? data.newsFeed : [];
+
+      const newsItems = news.map((item) => ({
+        source: "news",
+        title: prettyTitle(item.title, "Update terbaru"),
+        meta: (item.sourceTag || "UPDATE") + " - " + (item.author || "LYVA TEAM"),
         imageUrl: item.imageUrl || "",
-        href: item.downloadUrl || "#",
+        actionLabel: item.messageUrl ? "Lihat sumber" : "",
+        actionHref: item.messageUrl || "#",
         copyId: "",
-        ext: item.ext || "",
-        type: item.type || "",
-        kind: "",
-      };
-    }
-
-    function toHpPopular(item) {
-      return {
-        source: "hp",
-        title: item.name || "Asset HP",
-        meta: "ID: " + (item.id || "-") + " | Kind: " + (item.kind || "-"),
-        imageUrl: item.imageUrl || "",
-        href: "#",
-        copyId: item.id || "",
+        type: item.sourceTag || "UPDATE",
         ext: "",
-        type: "",
-        kind: item.kind || "",
+        date: dateLabel(item.createdAt),
+        newsTag: item.sourceTag || "UPDATE",
+        newsBody: String(item.body || "").trim(),
+        author: item.author || "LYVA TEAM",
+        createdAt: item.createdAt || "",
+      }));
+
+      const items = newsItems
+        .concat(pc.map((item) => ({
+          source: "asset",
+          title: prettyTitle(item.baseName || item.fileName, "Asset"),
+          meta: "Asset file - " + (item.type || "library"),
+          imageUrl: item.imageUrl || "",
+          actionLabel: "Download",
+          actionHref: item.downloadUrl || "#",
+          copyId: "",
+          type: item.type || "",
+          ext: item.ext || "",
+          date: dateLabel(),
+        })))
+        .concat(hp.map((item) => ({
+          source: "review",
+          title: prettyTitle(item.name, "Review AI"),
+          meta: "Review AI - " + (item.kind || "template"),
+          imageUrl: item.imageUrl || "",
+          actionLabel: "Copy ID",
+          actionHref: "#",
+          copyId: item.id || "",
+          kind: item.kind || "",
+          date: dateLabel(),
+        })));
+
+      return items;
+    }
+
+    function buildArticle(item, idx) {
+      const labelDate = item?.date || dateLabel();
+      const title = item?.title || "Artikel terbaru";
+      const sourceTag =
+        item?.source === "review"
+          ? "REVIEW AI"
+          : item?.source === "news"
+            ? String(item?.newsTag || "UPDATE")
+            : "ASSET";
+      const cover = item?.imageUrl || fallbackThumb(title, item?.source === "review" ? 168 : item?.source === "news" ? 210 : 220);
+      const readLabel = (4 + (idx % 4)) + " Mins Read";
+      const newsBody = String(item?.newsBody || "").trim();
+      const parsedNewsBody = newsBody
+        ? newsBody.split(/\\n+/).map((line) => line.trim()).filter(Boolean).slice(0, 3)
+        : [];
+
+      return {
+        tag: sourceTag,
+        title,
+        author: item?.author || "LYVA TEAM",
+        date: labelDate,
+        readLabel,
+        breadcrumb: "Home > " + sourceTag + " > " + title,
+        cover,
+        body: parsedNewsBody.length
+          ? parsedNewsBody
+          : [
+              "Artikel ini merangkum pembaruan terbaru yang lagi ramai di komunitas.",
+              "Masuk ke menu Asset untuk lihat file terbaru, atau Review AI untuk analisa script otomatis.",
+              "Semua update di halaman ini diambil langsung dari katalog sehingga konten selalu sinkron.",
+            ],
       };
     }
 
-    function allPopularItems() {
-      return state.pcAssets.map(toPcPopular).concat(state.hpAssets.map(toHpPopular));
-    }
-
-    function matchCategory(item, categoryId) {
-      if (categoryId === "pc") return item.source === "pc";
-      if (categoryId === "hp") return item.source === "hp";
-      if (categoryId === "studio") return item.source === "hp" && normalize(item.kind) === "studio-lite";
-      if (categoryId === "script") return normalize(item.type).includes("script") || normalize(item.ext).includes("lua");
-      if (categoryId === "model") return normalize(item.ext).includes("rbxm");
-      if (categoryId === "misc") return !normalize(item.ext).includes("rbxm") && !normalize(item.ext).includes("lua");
-      return true;
-    }
-
-    function matchSearch(item, query) {
-      if (!query) return true;
-      const blob = String(item.title || "") + " " + String(item.meta || "") + " " + String(item.type || "") + " " + String(item.kind || "");
-      return normalize(blob).includes(query);
-    }
-
-    function createEl(tag, className, text) {
-      const node = document.createElement(tag);
-      if (className) node.className = className;
-      if (typeof text === "string") node.textContent = text;
-      return node;
-    }
-
-    function createPcCard(item) {
-      const card = createEl("article", "asset-card");
-      const img = createEl("img", "thumb");
-      img.loading = "lazy";
-      img.src = item.imageUrl || fallbackThumb(item.baseName || item.fileName || "Asset PC", 215);
-      img.alt = item.baseName || item.fileName || "Asset";
-      img.onerror = () => {
-        img.src = fallbackThumb(item.baseName || item.fileName || "Asset PC", 215);
-      };
-
-      const body = createEl("div", "asset-body");
-      body.appendChild(createEl("div", "asset-name", item.baseName || item.fileName || "Unnamed Asset"));
-      body.appendChild(createEl("div", "asset-meta", "type: " + (item.type || "-") + " | size: " + (item.sizeLabel || "-")));
-      const actions = createEl("div", "asset-actions");
-      const download = createEl("a", "btn small", "Download");
-      download.href = item.downloadUrl || "#";
-      actions.appendChild(download);
-      body.appendChild(actions);
-
-      card.appendChild(img);
-      card.appendChild(body);
-      return card;
-    }
-
-    function createHpCard(item) {
-      const card = createEl("article", "asset-card");
-      const img = createEl("img", "thumb");
-      img.loading = "lazy";
-      img.src = item.imageUrl || fallbackThumb(item.name || "Asset HP", 145);
-      img.alt = item.name || "Asset HP";
-      img.onerror = () => {
-        img.src = fallbackThumb(item.name || "Asset HP", 145);
-      };
-
-      const body = createEl("div", "asset-body");
-      body.appendChild(createEl("div", "asset-name", item.name || "Unnamed Mobile Asset"));
-      body.appendChild(createEl("div", "asset-meta", "ID: " + (item.id || "-") + " | kind: " + (item.kind || "-")));
-      const actions = createEl("div", "asset-actions");
-      const copyBtn = createEl("button", "btn small copy", "Copy ID");
-      copyBtn.type = "button";
-      copyBtn.dataset.copyId = item.id || "";
-      actions.appendChild(copyBtn);
-      body.appendChild(actions);
-
-      card.appendChild(img);
-      card.appendChild(body);
-      return card;
-    }
-
-    function createPopularCard(item) {
-      const card = createEl("article", "asset-card");
-      const img = createEl("img", "thumb");
-      img.loading = "lazy";
-      img.src = item.imageUrl || fallbackThumb(item.title || "Asset", item.source === "hp" ? 145 : 215);
-      img.alt = item.title || "Asset";
-      img.onerror = () => {
-        img.src = fallbackThumb(item.title || "Asset", item.source === "hp" ? 145 : 215);
-      };
-
-      const body = createEl("div", "asset-body");
-      body.appendChild(createEl("div", "asset-name", item.title || "Unnamed Asset"));
-      body.appendChild(createEl("div", "asset-meta", item.meta || "-"));
-      const actions = createEl("div", "asset-actions");
-      if (item.copyId) {
-        const copyBtn = createEl("button", "btn small copy", "Copy ID");
-        copyBtn.type = "button";
-        copyBtn.dataset.copyId = item.copyId;
-        actions.appendChild(copyBtn);
-      } else {
-        const download = createEl("a", "btn small", "Download");
-        download.href = item.href || "#";
-        actions.appendChild(download);
+    function socialIcon(kind) {
+      if (kind === "facebook") {
+        return h("svg", { viewBox: "0 0 24 24", width: "8", height: "8", fill: "currentColor", "aria-hidden": "true" },
+          h("path", { d: "M13.5 22v-8h2.6l.4-3h-3V9c0-.9.3-1.5 1.6-1.5h1.7V4.8c-.3 0-1.3-.1-2.4-.1-2.4 0-4 1.4-4 4.2V11H8v3h2.4v8h3.1z" }),
+        );
       }
-      body.appendChild(actions);
-      card.appendChild(img);
-      card.appendChild(body);
-      return card;
-    }
-
-    function renderCategoryPills() {
-      categoryPills.innerHTML = "";
-      categories.forEach((item) => {
-        const pill = createEl("button", "cat-pill" + (state.activeCategory === item.id ? " active" : ""), item.label);
-        pill.type = "button";
-        pill.addEventListener("click", () => {
-          state.activeCategory = item.id;
-          renderCategoryPills();
-          renderPopularGrid();
-        });
-        categoryPills.appendChild(pill);
-      });
-    }
-
-    function renderPopularGrid() {
-      const q = normalize(globalSearchInput?.value || "");
-      const list = allPopularItems().filter((item) => matchCategory(item, state.activeCategory) && matchSearch(item, q));
-      popularGrid.innerHTML = "";
-      if (list.length === 0) {
-        popularGrid.appendChild(createEl("div", "empty", "Belum ada item populer."));
-        return;
+      if (kind === "twitter") {
+        return h("svg", { viewBox: "0 0 24 24", width: "8", height: "8", fill: "currentColor", "aria-hidden": "true" },
+          h("path", { d: "M18.2 4h2.9l-6.3 7.2L22 20h-5.6l-4.4-5.6L7 20H4.1l6.8-7.8L4 4h5.7l4 5.1L18.2 4zm-1 14.3h1.6L9.5 5.6H7.8l9.4 12.7z" }),
+        );
       }
-      list.slice(0, 20).forEach((item) => popularGrid.appendChild(createPopularCard(item)));
+      if (kind === "linkedin") {
+        return h("svg", { viewBox: "0 0 24 24", width: "8", height: "8", fill: "currentColor", "aria-hidden": "true" },
+          h("path", { d: "M6.4 8.5a1.8 1.8 0 1 1 0-3.6 1.8 1.8 0 0 1 0 3.6zM4.9 9.8H8v9.4H4.9V9.8zm5 0h2.9v1.3h.1c.4-.8 1.4-1.6 2.9-1.6 3.1 0 3.7 2 3.7 4.7v5h-3.1V15c0-1 0-2.4-1.5-2.4S13.3 13.8 13.3 15v4.2h-3.4V9.8z" }),
+        );
+      }
+      return h("span", { className: "share-ico", "aria-hidden": "true" }, ">");
     }
 
-    function setHeroCard(el, item, center) {
-      if (!el || !item) return;
-      const bg = item.imageUrl || fallbackThumb(item.title || "LYVA", center ? 226 : 205);
-      el.style.backgroundImage = "url('" + bg + "')";
-      const kicker = el.querySelector('[data-role="kicker"]');
-      const title = el.querySelector('[data-role="title"]');
-      const meta = el.querySelector('[data-role="meta"]');
-      if (kicker) kicker.textContent = item.source === "hp" ? "mobile id" : "asset pc";
-      if (title) title.textContent = item.title || "Untitled";
-      if (meta) meta.textContent = item.meta || "";
-      if (center) {
-        const action = el.querySelector('[data-role="action"]');
-        if (!action) return;
-        if (item.copyId) {
-          action.href = "#";
-          action.dataset.copyId = item.copyId;
-          action.textContent = "Copy ID";
-        } else {
-          action.href = item.href || "#";
-          action.removeAttribute("data-copy-id");
-          action.textContent = "Download";
+    function AdSlot({ slot, className = "", minHeight = 0 }) {
+      const adRef = React.useRef(null);
+
+      useEffect(() => {
+        if (!ADSENSE_ENABLED || !slot) return;
+        const node = adRef.current;
+        if (!node) return;
+        if (node.dataset.loaded === "1") return;
+        try {
+          (window.adsbygoogle = window.adsbygoogle || []).push({});
+          node.dataset.loaded = "1";
+        } catch {}
+      }, [slot]);
+
+      if (!ADSENSE_ENABLED || !slot) return null;
+
+      const classes = "ad-wrap" + (className ? " " + className : "");
+      const style = minHeight > 0
+        ? { display: "block", minHeight: String(minHeight) + "px" }
+        : { display: "block" };
+
+      return h("div", { className: classes },
+        h("ins", {
+          ref: adRef,
+          className: "adsbygoogle",
+          style,
+          "data-ad-client": ADSENSE_CLIENT,
+          "data-ad-slot": slot,
+          "data-ad-format": "auto",
+          "data-full-width-responsive": "true",
+        }),
+      );
+    }
+
+    function TopLayout({ query, setQuery, hideInstall, setHideInstall, section, setSection }) {
+      const dashboardUrl = toSiteUrl("/dashboard");
+      const promoUrl = publicPromoUrl();
+      return h(React.Fragment, null,
+        h("div", { className: "install" + (hideInstall ? " hide" : "") },
+          h("button", { className: "install-close", onClick: () => setHideInstall(true), type: "button" }, "x"),
+          h("span", null, "Buka update asset dan artikel terbaru lewat aplikasi LYVA Member Hub di komputer kamu"),
+          h("a", { className: "btn primary", href: promoUrl, target: "_blank", rel: "noreferrer" }, "Install"),
+        ),
+        h("header", { className: "topbar" },
+          h("div", { className: "brand" },
+            h("span", { className: "brand-mark" }, "L"),
+            h("span", null, "${safeTitle}"),
+          ),
+          h("label", { className: "search" },
+            h("input", {
+              value: query,
+              onChange: (e) => setQuery(e.target.value),
+              placeholder: "Cari artikel, asset, atau topik...",
+            }),
+            h("span", { className: "ico" }, "o"),
+          ),
+          h("div", { className: "actions" },
+            HAS_DISCORD
+              ? h("a", { className: "btn light", href: DISCORD_URL, target: "_blank", rel: "noreferrer" }, "Discord")
+              : h("span", { className: "btn light" }, "ID"),
+            h("a", { className: "btn primary", href: dashboardUrl }, "Masuk"),
+            h("a", { className: "btn outline", href: promoUrl, target: "_blank", rel: "noreferrer" }, "Daftar"),
+          ),
+        ),
+        h("nav", { className: "game-strip" },
+          GAME_TAGS.map((tag) => h("a", { href: "#", key: tag, onClick: (e) => e.preventDefault() }, tag)),
+        ),
+        h("div", { className: "section-tabs" },
+          SECTIONS.map((item) => h("button", {
+            key: item.id,
+            type: "button",
+            className: "tab-btn" + (section === item.id ? " active" : ""),
+            onClick: () => setSection(item.id),
+          }, item.label)),
+        ),
+      );
+    }
+
+    function NewsSection({ items }) {
+      const [selected, setSelected] = useState(0);
+
+      const articles = useMemo(() => {
+        if (!items.length) {
+          return [buildArticle({ source: "asset", title: "Belum ada artikel" }, 0)];
         }
-      }
+        return items.slice(0, 8).map((item, idx) => buildArticle(item, idx));
+      }, [items]);
+
+      const current = articles[Math.max(0, Math.min(selected, articles.length - 1))];
+      const latestArticles = articles.slice(0, 3).map((item, idx) => ({ item, idx }));
+      const relatedArticles = articles
+        .map((item, idx) => ({ item, idx }))
+        .filter(({ idx }) => idx !== selected)
+        .slice(0, 3);
+      const promoUrl = publicPromoUrl();
+
+      return h("section", { className: "section active" },
+        h("div", { className: "news" },
+          h("article", { className: "news-main" },
+            h("div", { className: "bread" }, current.breadcrumb),
+            h("div", { className: "tag" }, current.tag),
+            h("h1", { className: "news-title" }, current.title),
+            h("div", { className: "meta" },
+              h("span", { className: "meta-author" }, "By " + current.author),
+              h("span", { className: "meta-dot" }, "|"),
+              h("span", null, current.date),
+              h("span", { className: "meta-dot" }, "|"),
+              h("span", null, current.readLabel),
+            ),
+            h("div", { className: "share" },
+              h("a", { className: "share-btn facebook", href: shareHref("facebook", current.title), target: "_blank", rel: "noreferrer noopener" }, socialIcon("facebook"), h("span", null, "Facebook")),
+              h("a", { className: "share-btn twitter", href: shareHref("twitter", current.title), target: "_blank", rel: "noreferrer noopener" }, socialIcon("twitter"), h("span", null, "Twitter")),
+              h("a", { className: "share-btn linkedin", href: shareHref("linkedin", current.title), target: "_blank", rel: "noreferrer noopener" }, socialIcon("linkedin"), h("span", null, "LinkedIn")),
+              h("a", { className: "share-btn share-more", href: promoUrl, target: "_blank", rel: "noreferrer noopener", "aria-label": "Bagikan" }, socialIcon("share")),
+            ),
+            h(AdSlot, { slot: ADS_SLOT_TOP, className: "ad-main-top", minHeight: 90 }),
+            h("img", { className: "cover", src: current.cover, alt: current.title }),
+            h("div", { className: "body" }, current.body.map((line, i) => h("p", { key: i }, line))),
+            h("div", { className: "post-extra" },
+              h("div", { className: "extra-share" },
+                h("div", { className: "extra-share-title" }, "Share."),
+                h("div", { className: "extra-share-list" },
+                  h("a", { className: "extra-pill fb", href: shareHref("facebook", current.title), target: "_blank", rel: "noreferrer noopener" }, "Facebook"),
+                  h("a", { className: "extra-pill tw", href: shareHref("twitter", current.title), target: "_blank", rel: "noreferrer noopener" }, "X"),
+                  h("a", { className: "extra-pill in", href: shareHref("linkedin", current.title), target: "_blank", rel: "noreferrer noopener" }, "LinkedIn"),
+                  h("a", { className: "extra-pill wa", href: shareHref("whatsapp", current.title), target: "_blank", rel: "noreferrer noopener" }, "WhatsApp"),
+                  h("a", { className: "extra-pill mail", href: shareHref("email", current.title) }, "Email"),
+                  h("a", { className: "extra-pill tg", href: shareHref("telegram", current.title), target: "_blank", rel: "noreferrer noopener" }, "Telegram"),
+                ),
+              ),
+              h("div", { className: "author-box" },
+                h("div", { className: "author-name" }, "Lyva Team"),
+                h("p", { className: "author-bio" }, "SEO Content Writer dengan pengalaman lebih dari 2 tahun dalam penulisan digital, khususnya di topik seputar game seperti Free Fire, Mobile Legends, dan Honor of Kings. Saat ini, saya fokus menulis konten SEO-friendly yang informatif dan engaging, dengan Honkai, Honor of Kings, dan Free Fire sebagai game favorit saya."),
+              ),
+              h("div", { className: "related-wrap" },
+                h("div", { className: "related-head" }, "RELATED ", h("span", null, "POSTS")),
+                h("div", { className: "related-grid" },
+                  relatedArticles.map(({ item, idx }) => h("a", {
+                    href: "#",
+                    className: "related-card",
+                    key: item.title + idx,
+                    onClick: (e) => {
+                      e.preventDefault();
+                      setSelected(idx);
+                    },
+                  },
+                    h("img", { src: item.cover, alt: item.title }),
+                    h("div", { className: "related-title" }, item.title),
+                    h("div", { className: "related-date" }, item.date || dateLabel()),
+                  )),
+                ),
+              ),
+            ),
+            h(AdSlot, { slot: ADS_SLOT_BOTTOM, className: "ad-main-bottom", minHeight: 120 }),
+          ),
+          h("aside", { className: "news-side" },
+            h("div", { className: "side-heading" }, h("span", { className: "line" }), h("h3", { className: "side-title latest-heading" }, "ARTIKEL TERBARU"), h("span", { className: "line" })),
+            h("div", { className: "latest-list" },
+              latestArticles.map(({ item, idx }) => h("a", {
+                href: "#",
+                className: "latest-item",
+                key: item.title + idx,
+                onClick: (e) => {
+                  e.preventDefault();
+                  setSelected(idx);
+                },
+              },
+                h("img", { src: item.cover, alt: item.title }),
+                h("div", { className: "latest-copy" },
+                  h("div", { className: "latest-title" }, item.title),
+                  h("div", { className: "latest-date" }, item.date || dateLabel()),
+                ),
+              )),
+            ),
+            h("div", { className: "side-heading" }, h("span", { className: "line" }), h("h3", { className: "side-title topup-heading" }, "MAU TOP UP APA?"), h("span", { className: "line" })),
+            h("div", { className: "topics" },
+              TOPUP_TAGS.map((topic) => h("a", { href: promoUrl, key: topic, target: "_blank", rel: "noreferrer noopener" }, topic)),
+            ),
+            h(AdSlot, { slot: ADS_SLOT_SIDEBAR, className: "ad-side", minHeight: 250 }),
+          ),
+        ),
+      );
     }
 
-    function renderHeroDots() {
-      heroDots.innerHTML = "";
-      state.heroItems.forEach((_, idx) => {
-        const dot = createEl("button", "hero-dot" + (idx === state.slideIndex ? " active" : ""));
-        dot.type = "button";
-        dot.addEventListener("click", () => {
-          state.slideIndex = idx;
-          renderHero();
-          startHeroSlider();
+    function SiteFooter({ articles }) {
+      const promoItems = (Array.isArray(articles) ? articles : []).slice(0, 2);
+      const promoUrl = publicPromoUrl();
+      const socialLinks = [
+        { label: "f", href: "https://www.facebook.com" },
+        { label: "X", href: "https://x.com" },
+        { label: "ig", href: "https://www.instagram.com" },
+        { label: "tt", href: "https://www.tiktok.com" },
+        { label: "rss", href: toSiteUrl("/") },
+      ];
+
+      return h("footer", { className: "site-footer" },
+        h("div", { className: "footer-top" },
+          h("div", { className: "footer-col" },
+            h("div", { className: "footer-brand" }, "LYVA MEMBER HUB"),
+            h("p", { className: "footer-text" }, "Berita dan artikel game menarik hanya di Lyva Indonesia. Temukan informasi terkini dan guide terlengkap dari game-game populer seperti Mobile Legends, Free Fire, Genshin Impact, dan sebagainya."),
+            h("div", { className: "footer-social" },
+              socialLinks.map((item) => h("a", {
+                key: item.label,
+                href: item.href,
+                target: "_blank",
+                rel: "noreferrer noopener",
+                "aria-label": item.label,
+              }, item.label)),
+            ),
+          ),
+          h("div", { className: "footer-col" },
+            h("div", { className: "footer-title" }, "PROMO LYVA INDONESIA"),
+            h("div", { className: "footer-promo" },
+              promoItems.map((item, idx) => h("a", {
+                href: promoUrl,
+                target: "_blank",
+                rel: "noreferrer noopener",
+                className: "footer-promo-item",
+                key: item.title + idx,
+              },
+                h("img", { src: item.cover, alt: item.title }),
+                h("div", null,
+                  h("div", { className: "footer-promo-title" }, item.title),
+                  h("div", { className: "footer-date" }, item.date || dateLabel()),
+                ),
+              )),
+            ),
+          ),
+          h("div", { className: "footer-col" },
+            h("div", { className: "footer-title" }, "LYVA INDONESIA OVERSEAS BLOGS"),
+            h("p", { className: "footer-text" }, FOOTER_OVERSEAS.join(", ")),
+          ),
+          h("div", { className: "footer-col" },
+            h("div", { className: "footer-title" }, "OTHER TRUSTED TOP UP PLATFORMS"),
+            h("p", { className: "footer-text" }, FOOTER_TRUSTED.join(", ")),
+            h("div", { className: "footer-title" }, "TOP UP GAMES TERPOPULER"),
+            h("ul", { className: "footer-list" },
+              FOOTER_TOPUP.map((item) => h("li", { key: item },
+                h("a", { href: promoUrl, target: "_blank", rel: "noreferrer noopener" }, item),
+              )),
+            ),
+          ),
+        ),
+        h("div", { className: "footer-bottom" }, "© " + String(new Date().getFullYear()) + " LYVA INDONESIA - All Rights Reserved."),
+      );
+    }
+
+    function AssetSection({ items, query }) {
+      const [copied, setCopied] = useState("");
+
+      const list = useMemo(() => {
+        const q = normalize(query);
+        return items.filter((item) => {
+          if (item.source !== "asset") return false;
+          if (!q) return true;
+          return normalize(item.title + " " + item.meta + " " + (item.type || "") + " " + (item.ext || "")).includes(q);
         });
-        heroDots.appendChild(dot);
-      });
-    }
+      }, [items, query]);
 
-    function renderHero() {
-      if (!state.heroItems.length) return;
-      const total = state.heroItems.length;
-      const current = ((state.slideIndex % total) + total) % total;
-      const left = (current - 1 + total) % total;
-      const right = (current + 1) % total;
-      setHeroCard(heroLeft, state.heroItems[left], false);
-      setHeroCard(heroMain, state.heroItems[current], true);
-      setHeroCard(heroRight, state.heroItems[right], false);
-      renderHeroDots();
-    }
-
-    function startHeroSlider() {
-      if (state.slideTimer) clearInterval(state.slideTimer);
-      state.slideTimer = setInterval(() => {
-        if (!state.heroItems.length) return;
-        state.slideIndex = (state.slideIndex + 1) % state.heroItems.length;
-        renderHero();
-      }, 4300);
-    }
-
-    function renderPcAssets() {
-      const qLocal = String(searchPcInput.value || "").trim().toLowerCase();
-      const qGlobal = String(globalSearchInput?.value || "").trim().toLowerCase();
-      const q = qLocal || qGlobal;
-      const list = state.pcAssets.filter((item) => {
-        if (!q) return true;
-        return (String(item.fileName || "") + " " + String(item.baseName || "") + " " + String(item.id || "") + " " + String(item.type || ""))
-          .toLowerCase()
-          .includes(q);
-      });
-
-      pcGrid.innerHTML = "";
-      if (list.length === 0) {
-        pcGrid.appendChild(createEl("div", "empty", "Belum ada asset PC."));
-        return;
-      }
-      list.forEach((item) => pcGrid.appendChild(createPcCard(item)));
-    }
-
-    function renderHpAssets() {
-      const qLocal = String(searchHpInput.value || "").trim().toLowerCase();
-      const qGlobal = String(globalSearchInput?.value || "").trim().toLowerCase();
-      const q = qLocal || qGlobal;
-      const list = state.hpAssets.filter((item) => {
-        if (!q) return true;
-        return (String(item.name || "") + " " + String(item.id || "") + " " + String(item.key || "") + " " + String(item.kind || ""))
-          .toLowerCase()
-          .includes(q);
-      });
-
-      hpGrid.innerHTML = "";
-      if (list.length === 0) {
-        hpGrid.appendChild(createEl("div", "empty", "Belum ada asset HP / Studio Lite."));
-        return;
-      }
-      list.forEach((item) => hpGrid.appendChild(createHpCard(item)));
-    }
-
-    async function loadCatalog() {
-      const res = await fetch("/api/public/catalog");
-      const data = await res.json();
-      state.pcAssets = Array.isArray(data.pcAssets) ? data.pcAssets : [];
-      state.hpAssets = Array.isArray(data.hpAssets) ? data.hpAssets : [];
-      state.summary = data.summary || {};
-      state.heroItems = allPopularItems().slice(0, 8);
-      if (!state.heroItems.length) {
-        state.heroItems = [
-          {
-            source: "pc",
-            title: "Special Discount",
-            meta: "Katalog lagi kosong",
-            imageUrl: "",
-            href: "#",
-            copyId: "",
-          },
-        ];
-      }
-      renderStats();
-      renderCategoryPills();
-      renderPopularGrid();
-      renderPcAssets();
-      renderHpAssets();
-      renderHero();
-      startHeroSlider();
-    }
-
-    function setSection(sectionId) {
-      menuButtons.forEach((btn) => {
-        const active = btn.dataset.target === sectionId;
-        btn.classList.toggle("active", active);
-      });
-      sections.forEach((section) => {
-        section.classList.toggle("active", section.id === sectionId);
-      });
-    }
-
-    menuButtons.forEach((btn) => {
-      btn.addEventListener("click", () => setSection(btn.dataset.target));
-    });
-    searchPcInput.addEventListener("input", renderPcAssets);
-    searchHpInput.addEventListener("input", renderHpAssets);
-    globalSearchInput?.addEventListener("input", () => {
-      renderPopularGrid();
-      renderPcAssets();
-      renderHpAssets();
-    });
-    closeInstallStrip?.addEventListener("click", () => {
-      installStrip?.classList.add("hide");
-    });
-    document.addEventListener("click", async (event) => {
-      const target = event.target.closest("[data-copy-id]");
-      if (!target) return;
-      const idValue = String(target.dataset.copyId || "").trim();
-      if (!idValue) return;
-      try {
-        if (navigator.clipboard && navigator.clipboard.writeText) {
-          await navigator.clipboard.writeText(idValue);
-        } else {
-          const temp = document.createElement("textarea");
-          temp.value = idValue;
-          document.body.appendChild(temp);
-          temp.select();
-          document.execCommand("copy");
-          temp.remove();
+      const onCopy = async (value) => {
+        const text = String(value || "").trim();
+        if (!text) return;
+        try {
+          if (navigator.clipboard?.writeText) {
+            await navigator.clipboard.writeText(text);
+          } else {
+            const area = document.createElement("textarea");
+            area.value = text;
+            document.body.appendChild(area);
+            area.select();
+            document.execCommand("copy");
+            area.remove();
+          }
+          setCopied(text);
+          setTimeout(() => setCopied(""), 1200);
+        } catch {
+          setCopied("");
         }
-        target.classList.add("ok");
-        target.textContent = "Copied";
-        setTimeout(() => {
-          target.classList.remove("ok");
-          target.textContent = "Copy ID";
-        }, 1200);
-      } catch {
-        target.textContent = "Copy gagal";
+      };
+
+      return h("section", { className: "section active" },
+        h("div", { className: "panel" },
+          h("h3", { className: "head" }, "Asset Library"),
+          h("div", { className: "asset-grid" },
+            list.length
+              ? list.map((item, idx) => h("article", { className: "asset-card", key: item.title + idx },
+                  h("img", {
+                    className: "asset-thumb",
+                    src: item.imageUrl || fallbackThumb(item.title, 220),
+                    alt: item.title,
+                    onError: (e) => {
+                      e.currentTarget.src = fallbackThumb(item.title, 220);
+                    },
+                  }),
+                  h("div", { className: "asset-body" },
+                    h("div", { className: "asset-name" }, item.title),
+                    h("div", { className: "asset-meta" }, item.meta),
+                    h("div", { className: "asset-actions" },
+                      item.copyId
+                        ? h("button", {
+                            className: "action" + (copied === item.copyId ? " ok" : ""),
+                            onClick: () => onCopy(item.copyId),
+                            type: "button",
+                          }, copied === item.copyId ? "Copied" : "Copy ID")
+                        : h("a", { className: "action", href: item.actionHref || "#" }, item.actionLabel || "Download"),
+                    ),
+                  ),
+                ))
+              : h("div", { className: "empty" }, "Belum ada asset yang cocok."),
+          ),
+        ),
+      );
+    }
+
+    function ReviewSection() {
+      const dashboardUrl = toSiteUrl("/dashboard");
+      return h("section", { className: "section active" },
+        h("div", { className: "panel" },
+          h("h3", { className: "head" }, "Review AI"),
+          h("div", { className: "cards" },
+            h("article", { className: "card" }, h("h4", null, "Review AI Cepat"), h("p", null, "Gunakan command /review ai untuk analisa kode, ringkas issue utama, dan dapatkan saran patch.")),
+            h("article", { className: "card" }, h("h4", null, "Checklist Otomatis"), h("p", null, "AI bantu cek logic, security, performa, lalu kasih prioritas bug mana yang harus dibenerin dulu.")),
+            h("article", { className: "card" }, h("h4", null, "Template Konsisten"), h("p", null, "Atur format review dari dashboard agar tim pakai standar laporan yang sama.")),
+            h("article", { className: "card" }, h("h4", null, "Mulai"), h("p", null, h("a", { className: "btn primary", href: dashboardUrl }, "Buka Dashboard"))),
+          ),
+        ),
+      );
+    }
+
+    function HadiahSection() {
+      return h("section", { className: "section active" },
+        h("div", { className: "panel" },
+          h("h3", { className: "head" }, "Hadiahku"),
+          h("div", { className: "cards" },
+            h("article", { className: "card" }, h("h4", null, "Bonus Member"), h("p", null, "Akses artikel premium, update asset lebih awal, dan event komunitas mingguan.")),
+            h("article", { className: "card" }, h("h4", null, "Status Akun"), h("p", null, "Verifikasi akun untuk membuka fitur eksklusif dan notifikasi update otomatis.")),
+            h("article", { className: "card" }, h("h4", null, "Support"), h("p", null, "Butuh bantuan? Tim support siap bantu melalui Discord atau dashboard admin.")),
+            h("article", { className: "card" }, h("h4", null, "Keamanan"), h("p", null, "Akses sensitif dipantau otomatis dan proteksi akun selalu aktif.")),
+          ),
+        ),
+      );
+    }
+
+    function App() {
+      const [section, setSection] = useState("home");
+      const [query, setQuery] = useState("");
+      const [hideInstall, setHideInstall] = useState(false);
+      const [items, setItems] = useState([]);
+
+      useEffect(() => {
+        let alive = true;
+        fetch("/api/public/catalog")
+          .then((res) => res.json())
+          .then((data) => {
+            if (!alive) return;
+            setItems(mapCatalog(data));
+          })
+          .catch(() => {
+            if (!alive) return;
+            setItems([]);
+          });
+        return () => {
+          alive = false;
+        };
+      }, []);
+
+      const filteredItems = useMemo(() => {
+        const q = normalize(query);
+        if (!q) return items;
+        return items.filter((item) => normalize(item.title + " " + item.meta + " " + (item.type || "") + " " + (item.kind || "")).includes(q));
+      }, [items, query]);
+
+      const footerArticles = useMemo(() => {
+        if (!filteredItems.length) {
+          return [buildArticle({ source: "asset", title: "Belum ada artikel" }, 0)];
+        }
+        return filteredItems.slice(0, 4).map((item, idx) => buildArticle(item, idx));
+      }, [filteredItems]);
+
+      return h("div", { className: "page" },
+        h("main", { className: "main" },
+          h("div", { className: "main-inner" },
+            h(TopLayout, { query, setQuery, hideInstall, setHideInstall, section, setSection }),
+            section === "home" ? h(NewsSection, { items: filteredItems }) : null,
+            section === "asset" ? h(AssetSection, { items: filteredItems, query }) : null,
+            section === "review" ? h(ReviewSection) : null,
+            section === "hadiah" ? h(HadiahSection) : null,
+            h(SiteFooter, { articles: footerArticles }),
+          ),
+        ),
+      );
+    }
+
+    class RenderBoundary extends React.Component {
+      constructor(props) {
+        super(props);
+        this.state = { error: null };
       }
-    });
-    loadCatalog().catch(() => {
-      popularGrid.innerHTML = '<div class="empty">Gagal load katalog.</div>';
-      pcGrid.innerHTML = '<div class="empty">Gagal load asset PC.</div>';
-      hpGrid.innerHTML = '<div class="empty">Gagal load asset HP.</div>';
-    });
+      static getDerivedStateFromError(error) {
+        return { error: error || new Error("Render failed") };
+      }
+      componentDidCatch(error) {
+        showFatal(error?.message || "Render error");
+      }
+      render() {
+        if (this.state.error) {
+          return h("div", {
+            style: {
+              padding: "16px",
+              fontFamily: "Arial,sans-serif",
+              color: "#1f2f52",
+              background: "#fff",
+              border: "1px solid #d8e0ef",
+              borderRadius: "10px",
+            },
+          }, "Terjadi error saat render halaman. Coba refresh (Ctrl+F5).");
+        }
+        return this.props.children;
+      }
+    }
+
+    createRoot(document.getElementById("app")).render(h(RenderBoundary, null, h(App)));
+    }
   </script>
 </body>
 </html>`;
@@ -2326,10 +2927,65 @@ function startDashboard({ client, rest, clientId, getCommandsBody, syncGuildComm
   const server = http.createServer(async (req, res) => {
     try {
       const method = String(req.method || "GET").toUpperCase();
+      const isPageMethod = method === "GET" || method === "HEAD";
       const url = new URL(req.url || "/", "http://localhost");
       const authed = isAuthed(req, sessions);
+      const requestHost = String(req.headers.host || "").split(":")[0].trim().toLowerCase();
+      const forwardedProto = String(req.headers["x-forwarded-proto"] || "")
+        .split(",")[0]
+        .trim()
+        .toLowerCase();
+      const isHttpsRequest = forwardedProto === "https" || Boolean(req.socket && req.socket.encrypted);
+      const isLocalHost = /^(localhost|127\.0\.0\.1)$/i.test(requestHost);
+      const requestPath = url.pathname + url.search;
 
-      if (method === "GET" && (url.pathname === "/" || url.pathname === "/member")) {
+      if (
+        isPageMethod &&
+        (url.pathname === "/" || url.pathname === "/member" || url.pathname === "/dashboard") &&
+        requestHost &&
+        !isLocalHost &&
+        !isHttpsRequest
+      ) {
+        res.writeHead(301, { Location: `https://${requestHost}${requestPath}` });
+        res.end();
+        return;
+      }
+
+      if (
+        MEMBER_OLD_HOST &&
+        requestHost === MEMBER_OLD_HOST &&
+        (url.pathname === "/" || url.pathname === "/member")
+      ) {
+        const targetBase = String(MEMBER_SITE_URL || "").trim().replace(/\/+$/g, "");
+        if (targetBase) {
+          res.writeHead(301, { Location: targetBase + url.pathname + url.search });
+          res.end();
+          return;
+        }
+      }
+
+      if (isPageMethod && url.pathname === "/ads.txt") {
+        const adsTxt = buildAdsTxtContent();
+        if (!adsTxt) {
+          res.writeHead(404, { "Content-Type": "text/plain; charset=utf-8" });
+          res.end("ads.txt is not configured.\n");
+          return;
+        }
+
+        const headers = {
+          "Content-Type": "text/plain; charset=utf-8",
+          "Cache-Control": "public, max-age=3600",
+        };
+        if (method === "HEAD") {
+          res.writeHead(200, headers);
+          res.end();
+          return;
+        }
+        sendBinary(res, 200, Buffer.from(adsTxt, "utf8"), headers);
+        return;
+      }
+
+      if (isPageMethod && (url.pathname === "/" || url.pathname === "/member")) {
         sendHtml(
           res,
           200,
@@ -2337,12 +2993,13 @@ function startDashboard({ client, rest, clientId, getCommandsBody, syncGuildComm
             title: MEMBER_PAGE_TITLE,
             promoUrl: MEMBER_PROMO_URL,
             discordUrl: MEMBER_DISCORD_URL,
+            siteUrl: MEMBER_SITE_URL,
           }),
         );
         return;
       }
 
-      if (method === "GET" && url.pathname === "/dashboard") {
+      if (isPageMethod && url.pathname === "/dashboard") {
         sendHtml(res, 200, buildPage({ appName, authed }));
         return;
       }
@@ -2350,6 +3007,7 @@ function startDashboard({ client, rest, clientId, getCommandsBody, syncGuildComm
       if (method === "GET" && url.pathname === "/api/public/catalog") {
         const assets = await listAssets().catch(() => []);
         const mobile = await listMobileAssets().catch(() => []);
+        const newsFeed = await listNewsFeed(50).catch(() => []);
         const previewLookup = await loadPreviewLookup().catch(() => new Map());
         const studioLiteCount = mobile.filter((item) => String(item.kind || "").toLowerCase() === "studio-lite").length;
         const pcAssets = assets.map((item) => {
@@ -2378,8 +3036,23 @@ function startDashboard({ client, rest, clientId, getCommandsBody, syncGuildComm
             imageUrl: previewFileName ? `/api/public/asset-preview?file=${encodeURIComponent(previewFileName)}` : "",
           };
         });
+        const publicNews = Array.isArray(newsFeed)
+          ? newsFeed.map((item) => ({
+              id: item.id,
+              sourceTag: item.sourceTag || "UPDATE",
+              title: item.title || "Update terbaru",
+              body: item.body || "",
+              author: item.author || "LYVA TEAM",
+              createdAt: item.createdAt || new Date().toISOString(),
+              messageUrl: item.messageUrl || "",
+              imageUrl: item.imageFile
+                ? `/api/public/asset-preview?file=${encodeURIComponent(item.imageFile)}`
+                : String(item.imageUrlExternal || ""),
+            }))
+          : [];
         sendJson(res, 200, {
           ok: true,
+          newsFeed: publicNews,
           pcAssets,
           hpAssets,
           assets: pcAssets,
@@ -2448,6 +3121,60 @@ function startDashboard({ client, rest, clientId, getCommandsBody, syncGuildComm
           "Content-Disposition": `attachment; filename="${encodeURIComponent(selected.fileName)}"`,
           "Cache-Control": "no-store",
         });
+        return;
+      }
+
+      if (isPageMethod && url.pathname === "/robots.txt") {
+        const siteBase = String(MEMBER_SITE_URL || "").trim().replace(/\/+$/g, "");
+        const robotsTxt = [
+          "User-agent: *",
+          "Allow: /",
+          siteBase ? `Sitemap: ${siteBase}/sitemap.xml` : "",
+          "",
+        ]
+          .filter(Boolean)
+          .join("\n");
+
+        const headers = {
+          "Content-Type": "text/plain; charset=utf-8",
+          "Cache-Control": "public, max-age=3600",
+        };
+        if (method === "HEAD") {
+          res.writeHead(200, headers);
+          res.end();
+          return;
+        }
+        sendBinary(res, 200, Buffer.from(robotsTxt, "utf8"), headers);
+        return;
+      }
+
+      if (isPageMethod && url.pathname === "/sitemap.xml") {
+        const siteBase = String(MEMBER_SITE_URL || "").trim().replace(/\/+$/g, "");
+        if (!siteBase) {
+          res.writeHead(404, { "Content-Type": "text/plain; charset=utf-8" });
+          res.end("sitemap is not configured.\n");
+          return;
+        }
+        const today = new Date().toISOString().slice(0, 10);
+        const urls = ["/", "/member", "/ads.txt"]
+          .map((pathName) => `<url><loc>${sanitizeText(siteBase + pathName)}</loc><lastmod>${today}</lastmod></url>`)
+          .join("");
+        const xml =
+          '<?xml version="1.0" encoding="UTF-8"?>' +
+          '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">' +
+          urls +
+          "</urlset>";
+
+        const headers = {
+          "Content-Type": "application/xml; charset=utf-8",
+          "Cache-Control": "public, max-age=3600",
+        };
+        if (method === "HEAD") {
+          res.writeHead(200, headers);
+          res.end();
+          return;
+        }
+        sendBinary(res, 200, Buffer.from(xml, "utf8"), headers);
         return;
       }
 
@@ -2607,6 +3334,8 @@ function startDashboard({ client, rest, clientId, getCommandsBody, syncGuildComm
 module.exports = {
   startDashboard,
 };
+
+
 
 
 
