@@ -136,6 +136,19 @@ Route web:
 - `/` atau `/member` = halaman member/public (fitur, free asset, studio lite id)
 - `/dashboard` = halaman admin dashboard (login)
 
+Halaman member/public sekarang:
+- punya sidebar: `Home`, `Asset PC`, `Asset HP`, `Review`
+- list asset tampil model card (desktop 3 kolom)
+- user bisa download asset langsung dari web (tanpa lewat Discord)
+
+Foto/thumbnail fitur:
+- simpan file preview di folder `assets/previews`
+- format: `.png`, `.jpg`, `.jpeg`, `.webp`, `.gif`
+- nama file preview harus sama dengan nama asset/key (canonical match)
+- contoh:
+  - asset: `inventory-nih-woii.rbxm`
+  - preview: `inventory_nih_woii.png`
+
 Untuk akses publik via domain + Nginx:
 
 ```nginx

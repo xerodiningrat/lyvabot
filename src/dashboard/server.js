@@ -21,6 +21,8 @@ const SELF_UPDATE_LOG_PATH = String(
 const MEMBER_PAGE_TITLE = String(process.env.MEMBER_PAGE_TITLE || "LYVA Member Hub").trim();
 const MEMBER_DISCORD_URL = String(process.env.MEMBER_DISCORD_URL || "").trim();
 const MEMBER_PROMO_URL = String(process.env.MEMBER_PROMO_URL || "https://lyvaindonesia.com").trim();
+const PUBLIC_PREVIEW_DIR = path.join(process.cwd(), "assets", "previews");
+const PUBLIC_PREVIEW_EXTENSIONS = new Set([".png", ".jpg", ".jpeg", ".webp", ".gif"]);
 
 function toInt(value, fallback) {
   const n = Number(value);
@@ -185,6 +187,49 @@ function toAssetContentType(fileName) {
   if (ext === ".rbxm" || ext === ".rbxmx") return "application/octet-stream";
   if (ext === ".lua" || ext === ".luau" || ext === ".txt") return "text/plain; charset=utf-8";
   return "application/octet-stream";
+}
+
+function toImageContentType(fileName) {
+  const ext = String(path.extname(fileName || "")).toLowerCase();
+  if (ext === ".png") return "image/png";
+  if (ext === ".jpg" || ext === ".jpeg") return "image/jpeg";
+  if (ext === ".webp") return "image/webp";
+  if (ext === ".gif") return "image/gif";
+  return "application/octet-stream";
+}
+
+function toCanonicalAssetKey(value) {
+  return String(value || "")
+    .trim()
+    .toLowerCase()
+    .replace(/\.[a-z0-9]+$/i, "")
+    .replace(/[^a-z0-9]/g, "");
+}
+
+async function loadPreviewLookup() {
+  await fs.mkdir(PUBLIC_PREVIEW_DIR, { recursive: true });
+  const entries = await fs.readdir(PUBLIC_PREVIEW_DIR, { withFileTypes: true });
+  const map = new Map();
+
+  for (const entry of entries) {
+    if (!entry.isFile()) continue;
+    const ext = String(path.extname(entry.name || "")).toLowerCase();
+    if (!PUBLIC_PREVIEW_EXTENSIONS.has(ext)) continue;
+    const base = path.basename(entry.name, ext);
+    const key = toCanonicalAssetKey(base);
+    if (!key || map.has(key)) continue;
+    map.set(key, entry.name);
+  }
+  return map;
+}
+
+function findPreviewFileName(previewLookup, candidates = []) {
+  for (const candidate of candidates) {
+    const key = toCanonicalAssetKey(candidate);
+    if (!key) continue;
+    if (previewLookup.has(key)) return previewLookup.get(key);
+  }
+  return "";
 }
 
 function buildPage({ appName, authed }) {
@@ -1040,28 +1085,29 @@ function buildMemberPage({ title = MEMBER_PAGE_TITLE, promoUrl = MEMBER_PROMO_UR
   <style>
     @import url("https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&display=swap");
     :root {
-      --bg: #0a1224;
-      --bg-soft: #131f3c;
-      --panel: #172847;
-      --line: #2b4372;
+      --bg: #091224;
+      --bg-soft: #132243;
+      --panel: #162747;
+      --line: #2b4472;
       --text: #e9f0ff;
       --muted: #94abd8;
       --brand: #22c55e;
       --brand2: #38bdf8;
       --accent: #f59e0b;
+      --danger: #ef4444;
     }
     * { box-sizing: border-box; margin: 0; }
     body {
       font-family: "Nunito", "Segoe UI", sans-serif;
       color: var(--text);
       background:
-        radial-gradient(900px 500px at 6% -12%, #2b4a86 0%, transparent 60%),
-        radial-gradient(900px 500px at 100% 0%, #1c4a72 0%, transparent 55%),
+        radial-gradient(900px 500px at 7% -10%, #2a4a85 0%, transparent 60%),
+        radial-gradient(900px 500px at 100% 0%, #1c4b74 0%, transparent 55%),
         var(--bg);
       min-height: 100vh;
-      padding: 18px;
+      padding: 16px;
     }
-    .wrap { max-width: 1320px; margin: 0 auto; }
+    .wrap { max-width: 1360px; margin: 0 auto; }
     .layout {
       display: grid;
       grid-template-columns: 240px minmax(0, 1fr);
@@ -1128,6 +1174,8 @@ function buildMemberPage({ title = MEMBER_PAGE_TITLE, promoUrl = MEMBER_PROMO_UR
       border-radius: 9px;
       font-size: 12px;
     }
+    button.btn.copy { background: #3b82f6; color: #071122; }
+    button.btn.copy.ok { background: #22c55e; }
     .grid { display: grid; grid-template-columns: repeat(4, minmax(0,1fr)); gap: 10px; }
     .stat { padding: 12px; border: 1px solid var(--line); border-radius: 12px; background: var(--bg-soft); }
     .stat .k { color: var(--muted); font-size: 12px; font-weight: 700; }
@@ -1138,22 +1186,39 @@ function buildMemberPage({ title = MEMBER_PAGE_TITLE, promoUrl = MEMBER_PROMO_UR
     .feature p { color: var(--muted); font-size: 13px; line-height: 1.45; }
     .catalog { padding: 14px; display: grid; gap: 10px; }
     .search { width: 100%; padding: 11px 12px; border-radius: 10px; border: 1px solid var(--line); background: #0f1a31; color: var(--text); }
-    .cols { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-    .list-box { border: 1px solid var(--line); border-radius: 12px; background: #101c34; min-height: 220px; padding: 10px; }
-    .list-box h4 { margin-bottom: 9px; font-size: 14px; }
-    .item-list { display: grid; gap: 8px; max-height: 420px; overflow: auto; }
-    .item {
+    .card-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 12px;
+    }
+    .asset-card {
       border: 1px solid #2c4270;
-      border-radius: 10px;
-      padding: 9px;
+      border-radius: 12px;
+      overflow: hidden;
       background: #0f1a30;
       display: grid;
-      grid-template-columns: minmax(0, 1fr) auto;
-      gap: 8px;
-      align-items: center;
+      grid-template-rows: 160px auto;
     }
-    .item .name { font-size: 13px; font-weight: 800; }
-    .item .meta { margin-top: 3px; color: var(--muted); font-size: 12px; }
+    .thumb {
+      width: 100%;
+      height: 160px;
+      object-fit: cover;
+      background: #0d162c;
+      border-bottom: 1px solid #2c4270;
+    }
+    .asset-body {
+      padding: 10px;
+      display: grid;
+      gap: 8px;
+    }
+    .asset-name {
+      font-size: 14px;
+      font-weight: 900;
+      line-height: 1.3;
+      word-break: break-word;
+    }
+    .asset-meta { color: var(--muted); font-size: 12px; line-height: 1.45; }
+    .asset-actions { display: flex; flex-wrap: wrap; gap: 6px; }
     .empty { color: var(--muted); font-size: 13px; }
     .review-grid {
       padding: 14px;
@@ -1175,11 +1240,12 @@ function buildMemberPage({ title = MEMBER_PAGE_TITLE, promoUrl = MEMBER_PROMO_UR
       .sidebar { position: static; }
       .grid { grid-template-columns: repeat(2, minmax(0,1fr)); }
       .features { grid-template-columns: 1fr; }
-      .cols { grid-template-columns: 1fr; }
+      .card-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
       .review-grid { grid-template-columns: 1fr; }
     }
     @media (max-width: 560px) {
       .grid { grid-template-columns: 1fr; }
+      .card-grid { grid-template-columns: 1fr; }
       .title { font-size: 28px; }
     }
   </style>
@@ -1194,7 +1260,8 @@ function buildMemberPage({ title = MEMBER_PAGE_TITLE, promoUrl = MEMBER_PROMO_UR
         </div>
         <div class="menu">
           <button class="active" data-target="section-home">Home</button>
-          <button data-target="section-assets">Assets</button>
+          <button data-target="section-pc">Asset PC</button>
+          <button data-target="section-hp">Asset HP</button>
           <button data-target="section-review">Review</button>
         </div>
         <div class="row">
@@ -1222,28 +1289,26 @@ function buildMemberPage({ title = MEMBER_PAGE_TITLE, promoUrl = MEMBER_PROMO_UR
             </div>
             <div class="feature">
               <h3>Free Asset Download</h3>
-              <p>File .rbxm/.lua bisa di-download langsung dari web tanpa harus request lewat channel Discord.</p>
+              <p>File .rbxm/.lua bisa di-download langsung dari web. Tiap asset tampil bentuk card + foto/thumbnail fitur.</p>
             </div>
             <div class="feature">
               <h3>Studio Lite ID</h3>
-              <p>Daftar ID dan nama fitur mobile/studio lite selalu tampil otomatis dari data bot.</p>
+              <p>Asset HP dipisah ke halaman sendiri, lengkap dengan ID dan tombol copy cepat.</p>
             </div>
           </div>
         </section>
 
-        <section class="panel section" id="section-assets">
+        <section class="panel section" id="section-pc">
           <div class="catalog">
-            <input id="searchInput" class="search" placeholder="Cari asset / id / fitur..." />
-            <div class="cols">
-              <div class="list-box">
-                <h4>Daftar Free Asset (Download Langsung)</h4>
-                <div id="assetList" class="item-list"></div>
-              </div>
-              <div class="list-box">
-                <h4>Daftar Studio Lite ID</h4>
-                <div id="mobileList" class="item-list"></div>
-              </div>
-            </div>
+            <input id="searchPcInput" class="search" placeholder="Cari asset PC..." />
+            <div id="pcGrid" class="card-grid"></div>
+          </div>
+        </section>
+
+        <section class="panel section" id="section-hp">
+          <div class="catalog">
+            <input id="searchHpInput" class="search" placeholder="Cari asset HP / studio lite..." />
+            <div id="hpGrid" class="card-grid"></div>
           </div>
         </section>
 
@@ -1281,13 +1346,14 @@ function buildMemberPage({ title = MEMBER_PAGE_TITLE, promoUrl = MEMBER_PROMO_UR
 
   <script>
     const statGrid = document.getElementById("statGrid");
-    const assetList = document.getElementById("assetList");
-    const mobileList = document.getElementById("mobileList");
-    const searchInput = document.getElementById("searchInput");
+    const pcGrid = document.getElementById("pcGrid");
+    const hpGrid = document.getElementById("hpGrid");
+    const searchPcInput = document.getElementById("searchPcInput");
+    const searchHpInput = document.getElementById("searchHpInput");
     const menuButtons = Array.from(document.querySelectorAll(".menu button"));
     const sections = Array.from(document.querySelectorAll(".section"));
 
-    let state = { assets: [], mobile: [], summary: {} };
+    let state = { pcAssets: [], hpAssets: [], summary: {} };
 
     function stat(label, value) {
       const el = document.createElement("div");
@@ -1304,28 +1370,120 @@ function buildMemberPage({ title = MEMBER_PAGE_TITLE, promoUrl = MEMBER_PROMO_UR
       statGrid.appendChild(stat("Bot Command", String(state.summary.commandHint || "/review /asset")));
     }
 
-    function renderList() {
-      const q = String(searchInput.value || "").trim().toLowerCase();
-      const assets = state.assets.filter((a) => !q || (a.fileName + " " + a.type + " " + a.id).toLowerCase().includes(q));
-      const mobile = state.mobile.filter((m) => !q || (m.name + " " + m.id + " " + m.kind + " " + m.key).toLowerCase().includes(q));
+    function fallbackThumb(label, hue) {
+      const text = String(label || "LYVA").slice(0, 22);
+      const svg =
+        '<svg xmlns="http://www.w3.org/2000/svg" width="640" height="360">' +
+        '<defs><linearGradient id="g" x1="0" x2="1" y1="0" y2="1">' +
+        '<stop offset="0%" stop-color="hsl(' + hue + ',65%,52%)"/>' +
+        '<stop offset="100%" stop-color="hsl(' + ((hue + 48) % 360) + ',70%,38%)"/>' +
+        '</linearGradient></defs>' +
+        '<rect width="640" height="360" fill="url(#g)"/>' +
+        '<text x="32" y="188" fill="#fff" font-size="34" font-family="Nunito,Segoe UI,sans-serif" font-weight="800">' +
+        text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;") +
+        "</text></svg>";
+      return "data:image/svg+xml;utf8," + encodeURIComponent(svg);
+    }
 
-      assetList.innerHTML = assets.length
-        ? assets.map((a) => '<div class="item"><div><div class="name">' + a.fileName + '</div><div class="meta">type: ' + a.type + ' | size: ' + a.sizeLabel + " | key: " + a.id + '</div></div><a class="btn small" href="' + a.downloadUrl + '">Download</a></div>').join("")
-        : '<div class="empty">Belum ada data asset.</div>';
+    function createEl(tag, className, text) {
+      const node = document.createElement(tag);
+      if (className) node.className = className;
+      if (typeof text === "string") node.textContent = text;
+      return node;
+    }
 
-      mobileList.innerHTML = mobile.length
-        ? mobile.map((m) => '<div class="item"><div><div class="name">' + m.name + '</div><div class="meta">id: ' + m.id + " | kind: " + m.kind + " | key: " + m.key + "</div></div></div>").join("")
-        : '<div class="empty">Belum ada data Studio Lite ID.</div>';
+    function createPcCard(item) {
+      const card = createEl("article", "asset-card");
+      const img = createEl("img", "thumb");
+      img.loading = "lazy";
+      img.src = item.imageUrl || fallbackThumb(item.baseName || item.fileName || "Asset PC", 215);
+      img.alt = item.baseName || item.fileName || "Asset";
+      img.onerror = () => {
+        img.src = fallbackThumb(item.baseName || item.fileName || "Asset PC", 215);
+      };
+
+      const body = createEl("div", "asset-body");
+      body.appendChild(createEl("div", "asset-name", item.baseName || item.fileName || "Unnamed Asset"));
+      body.appendChild(createEl("div", "asset-meta", "type: " + (item.type || "-") + " | size: " + (item.sizeLabel || "-")));
+      const actions = createEl("div", "asset-actions");
+      const download = createEl("a", "btn small", "Download");
+      download.href = item.downloadUrl || "#";
+      actions.appendChild(download);
+      body.appendChild(actions);
+
+      card.appendChild(img);
+      card.appendChild(body);
+      return card;
+    }
+
+    function createHpCard(item) {
+      const card = createEl("article", "asset-card");
+      const img = createEl("img", "thumb");
+      img.loading = "lazy";
+      img.src = item.imageUrl || fallbackThumb(item.name || "Asset HP", 145);
+      img.alt = item.name || "Asset HP";
+      img.onerror = () => {
+        img.src = fallbackThumb(item.name || "Asset HP", 145);
+      };
+
+      const body = createEl("div", "asset-body");
+      body.appendChild(createEl("div", "asset-name", item.name || "Unnamed Mobile Asset"));
+      body.appendChild(createEl("div", "asset-meta", "ID: " + (item.id || "-") + " | kind: " + (item.kind || "-")));
+      const actions = createEl("div", "asset-actions");
+      const copyBtn = createEl("button", "btn small copy", "Copy ID");
+      copyBtn.type = "button";
+      copyBtn.dataset.copyId = item.id || "";
+      actions.appendChild(copyBtn);
+      body.appendChild(actions);
+
+      card.appendChild(img);
+      card.appendChild(body);
+      return card;
+    }
+
+    function renderPcAssets() {
+      const q = String(searchPcInput.value || "").trim().toLowerCase();
+      const list = state.pcAssets.filter((item) => {
+        if (!q) return true;
+        return (String(item.fileName || "") + " " + String(item.baseName || "") + " " + String(item.id || "") + " " + String(item.type || ""))
+          .toLowerCase()
+          .includes(q);
+      });
+
+      pcGrid.innerHTML = "";
+      if (list.length === 0) {
+        pcGrid.appendChild(createEl("div", "empty", "Belum ada asset PC."));
+        return;
+      }
+      list.forEach((item) => pcGrid.appendChild(createPcCard(item)));
+    }
+
+    function renderHpAssets() {
+      const q = String(searchHpInput.value || "").trim().toLowerCase();
+      const list = state.hpAssets.filter((item) => {
+        if (!q) return true;
+        return (String(item.name || "") + " " + String(item.id || "") + " " + String(item.key || "") + " " + String(item.kind || ""))
+          .toLowerCase()
+          .includes(q);
+      });
+
+      hpGrid.innerHTML = "";
+      if (list.length === 0) {
+        hpGrid.appendChild(createEl("div", "empty", "Belum ada asset HP / Studio Lite."));
+        return;
+      }
+      list.forEach((item) => hpGrid.appendChild(createHpCard(item)));
     }
 
     async function loadCatalog() {
       const res = await fetch("/api/public/catalog");
       const data = await res.json();
-      state.assets = Array.isArray(data.assets) ? data.assets : [];
-      state.mobile = Array.isArray(data.mobile) ? data.mobile : [];
+      state.pcAssets = Array.isArray(data.pcAssets) ? data.pcAssets : [];
+      state.hpAssets = Array.isArray(data.hpAssets) ? data.hpAssets : [];
       state.summary = data.summary || {};
       renderStats();
-      renderList();
+      renderPcAssets();
+      renderHpAssets();
     }
 
     function setSection(sectionId) {
@@ -1341,10 +1499,37 @@ function buildMemberPage({ title = MEMBER_PAGE_TITLE, promoUrl = MEMBER_PROMO_UR
     menuButtons.forEach((btn) => {
       btn.addEventListener("click", () => setSection(btn.dataset.target));
     });
-    searchInput.addEventListener("input", renderList);
+    searchPcInput.addEventListener("input", renderPcAssets);
+    searchHpInput.addEventListener("input", renderHpAssets);
+    document.addEventListener("click", async (event) => {
+      const target = event.target.closest("[data-copy-id]");
+      if (!target) return;
+      const idValue = String(target.dataset.copyId || "").trim();
+      if (!idValue) return;
+      try {
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          await navigator.clipboard.writeText(idValue);
+        } else {
+          const temp = document.createElement("textarea");
+          temp.value = idValue;
+          document.body.appendChild(temp);
+          temp.select();
+          document.execCommand("copy");
+          temp.remove();
+        }
+        target.classList.add("ok");
+        target.textContent = "Copied";
+        setTimeout(() => {
+          target.classList.remove("ok");
+          target.textContent = "Copy ID";
+        }, 1200);
+      } catch {
+        target.textContent = "Copy gagal";
+      }
+    });
     loadCatalog().catch(() => {
-      assetList.innerHTML = '<div class="empty">Gagal load catalog.</div>';
-      mobileList.innerHTML = '<div class="empty">Gagal load catalog.</div>';
+      pcGrid.innerHTML = '<div class="empty">Gagal load asset PC.</div>';
+      hpGrid.innerHTML = '<div class="empty">Gagal load asset HP.</div>';
     });
   </script>
 </body>
@@ -1547,35 +1732,79 @@ function startDashboard({ client, rest, clientId, getCommandsBody, syncGuildComm
       if (method === "GET" && url.pathname === "/api/public/catalog") {
         const assets = await listAssets().catch(() => []);
         const mobile = await listMobileAssets().catch(() => []);
+        const previewLookup = await loadPreviewLookup().catch(() => new Map());
         const studioLiteCount = mobile.filter((item) => String(item.kind || "").toLowerCase() === "studio-lite").length;
-        const publicAssets = assets.map((item) => ({
-          id: item.id,
-          fileName: item.fileName,
-          baseName: item.baseName,
-          ext: item.ext,
-          type: item.type,
-          sizeBytes: item.sizeBytes,
-          sizeLabel: item.sizeLabel,
-          updatedAt: item.updatedAt,
-          downloadUrl: `/api/public/assets/download?file=${encodeURIComponent(item.fileName)}`,
-        }));
-        const publicMobile = mobile.map((item) => ({
-          key: item.key,
-          name: item.name,
-          id: item.id,
-          kind: item.kind,
-          updatedAt: item.updatedAt,
-        }));
+        const pcAssets = assets.map((item) => {
+          const previewFileName = findPreviewFileName(previewLookup, [item.fileName, item.baseName, item.id]);
+          return {
+            id: item.id,
+            fileName: item.fileName,
+            baseName: item.baseName,
+            ext: item.ext,
+            type: item.type,
+            sizeBytes: item.sizeBytes,
+            sizeLabel: item.sizeLabel,
+            updatedAt: item.updatedAt,
+            imageUrl: previewFileName ? `/api/public/asset-preview?file=${encodeURIComponent(previewFileName)}` : "",
+            downloadUrl: `/api/public/assets/download?file=${encodeURIComponent(item.fileName)}`,
+          };
+        });
+        const hpAssets = mobile.map((item) => {
+          const previewFileName = findPreviewFileName(previewLookup, [item.name, item.key, item.id]);
+          return {
+            key: item.key,
+            name: item.name,
+            id: item.id,
+            kind: item.kind,
+            updatedAt: item.updatedAt,
+            imageUrl: previewFileName ? `/api/public/asset-preview?file=${encodeURIComponent(previewFileName)}` : "",
+          };
+        });
         sendJson(res, 200, {
           ok: true,
-          assets: publicAssets,
-          mobile: publicMobile,
+          pcAssets,
+          hpAssets,
+          assets: pcAssets,
+          mobile: hpAssets,
           summary: {
-            fileCount: publicAssets.length,
-            mobileCount: publicMobile.length,
+            fileCount: pcAssets.length,
+            mobileCount: hpAssets.length,
             studioLiteCount,
             commandHint: "/review /asset",
           },
+        });
+        return;
+      }
+
+      if (method === "GET" && url.pathname === "/api/public/asset-preview") {
+        const previewName = String(url.searchParams.get("file") || "").trim();
+        if (!previewName) {
+          sendJson(res, 400, { ok: false, error: "Parameter file wajib diisi." });
+          return;
+        }
+        const safeName = path.basename(previewName);
+        if (safeName !== previewName) {
+          sendJson(res, 400, { ok: false, error: "Nama file preview tidak valid." });
+          return;
+        }
+        const ext = String(path.extname(safeName)).toLowerCase();
+        if (!PUBLIC_PREVIEW_EXTENSIONS.has(ext)) {
+          sendJson(res, 400, { ok: false, error: "Format preview tidak didukung." });
+          return;
+        }
+
+        const previewPath = path.join(PUBLIC_PREVIEW_DIR, safeName);
+        let buffer;
+        try {
+          buffer = await fs.readFile(previewPath);
+        } catch {
+          sendJson(res, 404, { ok: false, error: "Preview tidak ditemukan." });
+          return;
+        }
+        sendBinary(res, 200, buffer, {
+          "Content-Type": toImageContentType(safeName),
+          "Content-Length": String(buffer.length),
+          "Cache-Control": "public, max-age=300",
         });
         return;
       }
