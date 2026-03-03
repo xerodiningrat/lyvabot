@@ -1272,7 +1272,11 @@ function buildMemberPage({
       right: 14px;
       top: 10px;
       color: #7286ab;
-      font-size: 18px;
+      width: 18px;
+      height: 18px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
       line-height: 1;
     }
 
@@ -2117,6 +2121,7 @@ function buildMemberPage({
     const ADS_SLOT_SIDEBAR = ${adSlotSidebarJs};
     const ADS_SLOT_BOTTOM = ${adSlotBottomJs};
     const ADSENSE_ENABLED = Boolean(ADSENSE_CLIENT);
+    const BRAND_NAME = "LYVA INDONESIA";
 
     const SECTIONS = [
       { id: "home", label: "Home" },
@@ -2379,7 +2384,7 @@ function buildMemberPage({
         h("header", { className: "topbar" },
           h("div", { className: "brand" },
             h("span", { className: "brand-mark" }, "L"),
-            h("span", null, "${safeTitle}"),
+            h("span", null, BRAND_NAME),
           ),
           h("label", { className: "search" },
             h("input", {
@@ -2387,7 +2392,12 @@ function buildMemberPage({
               onChange: (e) => setQuery(e.target.value),
               placeholder: "Cari artikel, asset, atau topik...",
             }),
-            h("span", { className: "ico" }, "o"),
+            h("span", { className: "ico", "aria-hidden": "true" },
+              h("svg", { viewBox: "0 0 24 24", width: "18", height: "18", fill: "none", stroke: "currentColor", "stroke-width": "2", "stroke-linecap": "round", "stroke-linejoin": "round" },
+                h("circle", { cx: "11", cy: "11", r: "7" }),
+                h("line", { x1: "16.65", y1: "16.65", x2: "21", y2: "21" }),
+              ),
+            ),
           ),
           h("div", { className: "actions" },
             HAS_DISCORD
