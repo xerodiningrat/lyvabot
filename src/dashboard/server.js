@@ -2108,6 +2108,7 @@ function buildMemberPage({
     const createRoot = window.ReactDOM.createRoot;
     const h = React.createElement;
     const PROMO_URL = ${promoJs};
+    const BOT_INSTALL_URL = "https://discord.com/oauth2/authorize?client_id=1477645558746447894";
     const DISCORD_URL = ${discordJs};
     const SITE_URL = ${siteJs};
     const HAS_DISCORD = ${hasDiscord ? "true" : "false"};
@@ -2164,6 +2165,10 @@ function buildMemberPage({
       if (!raw || raw === "#") return toSiteUrl("/");
       if (/dashboard\\.lyvaindonesia\\.my\\.id/i.test(raw)) return toSiteUrl("/");
       return raw;
+    }
+
+    function botInstallUrl() {
+      return BOT_INSTALL_URL;
     }
 
     function shareHref(kind, articleTitle) {
@@ -2364,11 +2369,12 @@ function buildMemberPage({
     function TopLayout({ query, setQuery, hideInstall, setHideInstall, section, setSection }) {
       const dashboardUrl = toSiteUrl("/dashboard");
       const promoUrl = publicPromoUrl();
+      const installUrl = botInstallUrl();
       return h(React.Fragment, null,
         h("div", { className: "install" + (hideInstall ? " hide" : "") },
           h("button", { className: "install-close", onClick: () => setHideInstall(true), type: "button" }, "x"),
-          h("span", null, "Buka update asset dan artikel terbaru lewat aplikasi LYVA Member Hub di komputer kamu"),
-          h("a", { className: "btn primary", href: promoUrl, target: "_blank", rel: "noreferrer" }, "Install"),
+          h("span", null, "Install Bot Discord Lyva Indonesia untuk akses update asset dan artikel terbaru."),
+          h("a", { className: "btn primary", href: installUrl, target: "_blank", rel: "noreferrer" }, "Install Bot Discord Lyva Indonesia"),
         ),
         h("header", { className: "topbar" },
           h("div", { className: "brand" },
