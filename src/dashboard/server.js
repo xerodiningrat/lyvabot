@@ -7,6 +7,10 @@ const { Routes } = require("discord.js");
 const { listAssets, saveAssetBuffer, ASSET_DEDUPE_LOG_PATH } = require("../assets/library");
 const { listMobileAssets, addMobileAsset } = require("../assets/mobile-library");
 const { listNewsFeed } = require("../news/feed");
+const { normalizeCodeInput, formatCodeForDiscord } = require("../review/formatter");
+const { analyzeCode, formatFindings, formatSignalScan } = require("../review/rules");
+const { buildChecklistMessage, buildFeedbackTemplate } = require("../review/templates");
+const { requestOpenAIReview, formatAIReviewReport } = require("../review/ai");
 
 const SESSION_COOKIE = "lyva_dash_session";
 const SESSION_TTL_MS = 1000 * 60 * 60 * 24;
@@ -30,6 +34,11 @@ const MEMBER_AD_SLOT_SIDEBAR = String(process.env.MEMBER_AD_SLOT_SIDEBAR || "").
 const MEMBER_AD_SLOT_BOTTOM = String(process.env.MEMBER_AD_SLOT_BOTTOM || "").trim();
 const PUBLIC_PREVIEW_DIR = path.join(process.cwd(), "assets", "previews");
 const PUBLIC_PREVIEW_EXTENSIONS = new Set([".png", ".jpg", ".jpeg", ".webp", ".gif"]);
+const PUBLIC_REVIEW_MAX_CHARS = toInt(process.env.PUBLIC_REVIEW_MAX_CHARS, 12000);
+const PUBLIC_REVIEW_MAX_JSON_BYTES = toInt(process.env.PUBLIC_REVIEW_MAX_JSON_BYTES, 512 * 1024);
+const PUBLIC_REVIEW_AI_ENABLED = process.env.PUBLIC_REVIEW_AI_ENABLED !== "false";
+const PUBLIC_REVIEW_LIMIT_WINDOW_MS = toInt(process.env.PUBLIC_REVIEW_LIMIT_WINDOW_MS, 60 * 1000);
+const PUBLIC_REVIEW_LIMIT_PER_WINDOW = toInt(process.env.PUBLIC_REVIEW_LIMIT_PER_WINDOW, 6);
 
 function toInt(value, fallback) {
   const n = Number(value);
@@ -54,6 +63,85 @@ function normalizeAdSlot(value) {
   if (!slot) return "";
   if (!/^\d{6,}$/.test(slot)) return "";
   return slot;
+}
+
+function clipReviewOutput(text, max = 18000) {
+  const value = String(text || "").trim();
+  if (value.length <= max) return value;
+  return `${value.slice(0, max - 32)}\n\n... [output dipotong]`;
+}
+
+function buildIssueFocusedInput(source, findings = [], options = {}) {
+  const radius = Number(options.radius || 6);
+  const maxSnippets = Number(options.maxSnippets || 3);
+  const maxChars = Number(options.maxChars || 4200);
+  const text = String(source || "");
+  const lines = text.replace(/\r\n/g, "\n").split("\n");
+
+  const severityRank = { critical: 0, high: 1, medium: 2, low: 3 };
+  const ordered = [...(Array.isArray(findings) ? findings : [])]
+    .sort((a, b) => {
+      const sevA = severityRank[String(a?.severity || "medium").toLowerCase()] ?? 9;
+      const sevB = severityRank[String(b?.severity || "medium").toLowerCase()] ?? 9;
+      if (sevA !== sevB) return sevA - sevB;
+      return (a?.line || 999999) - (b?.line || 999999);
+    })
+    .slice(0, maxSnippets);
+
+  if (ordered.length === 0) {
+    const fallbackLines = lines.slice(0, Math.min(80, lines.length)).join("\n");
+    return {
+      code: fallbackLines,
+      context: "Tidak ada finding spesifik dari local engine; kirim konteks awal script.",
+      snippetCount: 0,
+    };
+  }
+
+  const blocks = [];
+  const contexts = [];
+  const used = new Set();
+
+  ordered.forEach((finding, index) => {
+    const lineNum = Number(finding?.line || 1);
+    const center = Math.max(1, Math.min(lines.length, lineNum));
+    const start = Math.max(1, center - radius);
+    const end = Math.min(lines.length, center + radius);
+    const key = `${start}:${end}`;
+    if (used.has(key)) return;
+    used.add(key);
+
+    const snippet = lines.slice(start - 1, end).join("\n");
+    const title = `-- [ISSUE ${index + 1}] ${String(finding?.rule || "unknown-rule")} line ${center}`;
+    blocks.push(`${title}\n${snippet}`);
+    contexts.push(`${index + 1}. ${String(finding?.rule || "unknown-rule")} (line ${center})`);
+  });
+
+  let joined = blocks.join("\n\n");
+  if (joined.length > maxChars) {
+    joined = `${joined.slice(0, maxChars - 80)}\n\n-- [TRUNCATED FOR AI INPUT]`;
+  }
+
+  return {
+    code: joined,
+    context: `Perbaiki hanya blok issue berikut: ${contexts.join("; ")}`,
+    snippetCount: blocks.length,
+  };
+}
+
+function checkPublicReviewRateLimit(store, key) {
+  const now = Date.now();
+  const slot = store.get(key) || { count: 0, resetAt: now + PUBLIC_REVIEW_LIMIT_WINDOW_MS };
+  if (now >= slot.resetAt) {
+    slot.count = 0;
+    slot.resetAt = now + PUBLIC_REVIEW_LIMIT_WINDOW_MS;
+  }
+  slot.count += 1;
+  store.set(key, slot);
+  return {
+    ok: slot.count <= PUBLIC_REVIEW_LIMIT_PER_WINDOW,
+    count: slot.count,
+    resetAt: slot.resetAt,
+  };
 }
 
 function buildAdsTxtContent() {
@@ -1158,6 +1246,7 @@ function buildMemberPage({
     }
     * { box-sizing: border-box; margin: 0; }
     html, body { min-height: 100%; width: 100%; }
+    #app { min-height: 100vh; }
     body {
       font-family: "Poppins", "Segoe UI", sans-serif;
       font-size: 14px;
@@ -1175,20 +1264,25 @@ function buildMemberPage({
       margin: 0 auto;
       padding: 8px 14px 0;
       min-height: 100vh;
+      display: flex;
     }
 
     .main {
       min-width: 0;
       display: grid;
       align-content: start;
+      width: 100%;
+      flex: 1;
     }
     .main-inner {
       width: 100%;
       max-width: 1180px;
       margin: 0 auto;
       padding: 10px 16px 0;
-      display: grid;
+      display: flex;
+      flex-direction: column;
       gap: 12px;
+      min-height: 100vh;
     }
 
     .install {
@@ -1836,6 +1930,125 @@ function buildMemberPage({
     }
     .card ul { margin-left: 18px; display: grid; gap: 4px; }
 
+    .review-chat {
+      border: 1px solid #d8e3f5;
+      border-radius: 12px;
+      background: #f9fbff;
+      padding: 12px;
+      display: grid;
+      gap: 10px;
+      min-height: 520px;
+    }
+    .review-toolbar {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+    .review-mode-btn {
+      border: 1px solid #cfdbf2;
+      border-radius: 999px;
+      background: #fff;
+      color: #34517c;
+      font-size: 12px;
+      font-weight: 700;
+      padding: 7px 11px;
+      cursor: pointer;
+    }
+    .review-mode-btn.active {
+      border-color: #2130b4;
+      background: #2130b4;
+      color: #fff;
+    }
+    .review-file {
+      border: 1px solid #cfdbf2;
+      border-radius: 10px;
+      padding: 8px 10px;
+      min-width: 180px;
+      max-width: 260px;
+      font-size: 12px;
+      color: #2d466f;
+      outline: none;
+      background: #fff;
+    }
+    .review-chat-log {
+      border: 1px solid #d8e3f5;
+      border-radius: 12px;
+      background: #fff;
+      padding: 10px;
+      min-height: 330px;
+      max-height: 420px;
+      overflow: auto;
+      display: grid;
+      gap: 8px;
+      align-content: start;
+    }
+    .chat-bubble {
+      border-radius: 10px;
+      padding: 10px 12px;
+      max-width: min(920px, 100%);
+      white-space: pre-wrap;
+      overflow-wrap: anywhere;
+      line-height: 1.5;
+      font-size: 13px;
+    }
+    .chat-user {
+      justify-self: end;
+      background: #2130b4;
+      color: #fff;
+    }
+    .chat-bot {
+      justify-self: start;
+      background: #eef3ff;
+      color: #1f3666;
+      border: 1px solid #d4def3;
+    }
+    .chat-meta {
+      font-size: 11px;
+      font-weight: 700;
+      margin-bottom: 5px;
+      opacity: 0.85;
+    }
+    .review-form {
+      display: grid;
+      gap: 8px;
+    }
+    .review-input {
+      width: 100%;
+      min-height: 130px;
+      border: 1px solid #cdd9f0;
+      border-radius: 12px;
+      padding: 10px 12px;
+      font-size: 13px;
+      line-height: 1.5;
+      font-family: "Consolas", "Fira Code", monospace;
+      resize: vertical;
+      outline: none;
+      background: #fff;
+      color: #17305d;
+    }
+    .review-input:focus {
+      border-color: #9db2de;
+      box-shadow: 0 0 0 3px #ebf1ff;
+    }
+    .review-send {
+      justify-self: end;
+      min-width: 160px;
+      border: 0;
+      border-radius: 999px;
+      background: #2130b4;
+      color: #fff;
+      font-size: 13px;
+      font-weight: 700;
+      min-height: 38px;
+      padding: 8px 14px;
+      cursor: pointer;
+    }
+    .review-send:disabled {
+      opacity: 0.55;
+      cursor: not-allowed;
+    }
+
     .empty {
       border: 1px dashed #cfd9eb;
       border-radius: 12px;
@@ -1845,7 +2058,7 @@ function buildMemberPage({
       color: #66799d;
     }
     .site-footer {
-      margin-top: 16px;
+      margin-top: auto;
       width: auto;
       margin-left: calc(50% - 50vw);
       margin-right: calc(50% - 50vw);
@@ -1987,6 +2200,13 @@ function buildMemberPage({
       }
       .asset-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
       .cards { grid-template-columns: 1fr; }
+      .review-chat {
+        min-height: 0;
+      }
+      .review-chat-log {
+        min-height: 260px;
+        max-height: 360px;
+      }
       .related-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
       .footer-top { grid-template-columns: 1fr 1fr; }
     }
@@ -2041,6 +2261,10 @@ function buildMemberPage({
         font-size: 10px;
         padding: 4px 8px;
         border-radius: 8px;
+      }
+      .review-send {
+        width: 100%;
+        justify-self: stretch;
       }
     }
     @media (max-width: 460px) {
@@ -2658,15 +2882,135 @@ function buildMemberPage({
     }
 
     function ReviewSection() {
-      const dashboardUrl = toSiteUrl("/dashboard");
+      const [mode, setMode] = useState("paste");
+      const [filename, setFilename] = useState("Script.lua");
+      const [code, setCode] = useState("");
+      const [busy, setBusy] = useState(false);
+      const [messages, setMessages] = useState([
+        {
+          role: "bot",
+          title: "Lyva Review",
+          content:
+            "Tempel script Luau/Roblox kamu di bawah, pilih mode review, lalu klik Kirim.\n\n- Review Paste: local engine + checklist + template feedback\n- Local Engine: local analyzer cepat\n- AI Review: analisa AI + context local engine",
+        },
+      ]);
+      const logRef = React.useRef(null);
+
+      useEffect(() => {
+        if (!logRef.current) return;
+        logRef.current.scrollTop = logRef.current.scrollHeight;
+      }, [messages, busy]);
+
+      async function submitReview() {
+        const fullCode = String(code || "").trim();
+        if (!fullCode || busy) return;
+
+        setMessages((prev) =>
+          prev.concat({
+            role: "user",
+            title: "Kamu",
+            content: fullCode.length > 2500 ? (fullCode.slice(0, 2500) + "\n\n... [input dipotong di tampilan]") : fullCode,
+          }),
+        );
+        setBusy(true);
+
+        try {
+          const response = await fetch("/api/public/review", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              mode,
+              filename: String(filename || "Script.lua").trim() || "Script.lua",
+              code: fullCode,
+            }),
+          });
+          const data = await response.json().catch(() => ({}));
+          if (!response.ok || !data?.ok) {
+            throw new Error(data?.error || "Gagal memproses review.");
+          }
+          const modeLabel = mode === "ai" ? "AI Review" : mode === "local" ? "Local Engine" : "Review Paste";
+          setMessages((prev) =>
+            prev.concat({
+              role: "bot",
+              title: modeLabel,
+              content: String(data.output || "Review selesai, tapi output kosong."),
+            }),
+          );
+          setCode("");
+        } catch (error) {
+          setMessages((prev) =>
+            prev.concat({
+              role: "bot",
+              title: "Error",
+              content: String(error?.message || "Terjadi error saat review."),
+            }),
+          );
+        } finally {
+          setBusy(false);
+        }
+      }
+
       return h("section", { className: "section active" },
         h("div", { className: "panel" },
           h("h3", { className: "head" }, "Review AI"),
-          h("div", { className: "cards" },
-            h("article", { className: "card" }, h("h4", null, "Review AI Cepat"), h("p", null, "Gunakan command /review ai untuk analisa kode, ringkas issue utama, dan dapatkan saran patch.")),
-            h("article", { className: "card" }, h("h4", null, "Checklist Otomatis"), h("p", null, "AI bantu cek logic, security, performa, lalu kasih prioritas bug mana yang harus dibenerin dulu.")),
-            h("article", { className: "card" }, h("h4", null, "Template Konsisten"), h("p", null, "Atur format review dari dashboard agar tim pakai standar laporan yang sama.")),
-            h("article", { className: "card" }, h("h4", null, "Mulai"), h("p", null, h("a", { className: "btn primary", href: dashboardUrl }, "Buka Dashboard"))),
+          h("div", { className: "review-chat" },
+            h("div", { className: "review-toolbar" },
+              h("button", {
+                type: "button",
+                className: "review-mode-btn" + (mode === "paste" ? " active" : ""),
+                onClick: () => setMode("paste"),
+              }, "Review Paste"),
+              h("button", {
+                type: "button",
+                className: "review-mode-btn" + (mode === "local" ? " active" : ""),
+                onClick: () => setMode("local"),
+              }, "Local Engine"),
+              h("button", {
+                type: "button",
+                className: "review-mode-btn" + (mode === "ai" ? " active" : ""),
+                onClick: () => setMode("ai"),
+              }, "AI Review"),
+              h("input", {
+                className: "review-file",
+                value: filename,
+                onChange: (e) => setFilename(e.target.value),
+                placeholder: "Nama file, contoh: CombatServer.lua",
+              }),
+            ),
+            h("div", { className: "review-chat-log", ref: logRef },
+              messages.map((msg, idx) =>
+                h("div", { key: msg.role + idx, className: "chat-bubble " + (msg.role === "user" ? "chat-user" : "chat-bot") },
+                  h("div", { className: "chat-meta" }, msg.title),
+                  h("div", null, msg.content),
+                ),
+              ),
+              busy
+                ? h("div", { className: "chat-bubble chat-bot" },
+                    h("div", { className: "chat-meta" }, "Lyva Review"),
+                    h("div", null, "Memproses script kamu..."),
+                  )
+                : null,
+            ),
+            h("div", { className: "review-form" },
+              h("textarea", {
+                className: "review-input",
+                value: code,
+                onChange: (e) => setCode(e.target.value),
+                placeholder: "Tempel script Luau/Roblox di sini...",
+                onKeyDown: (e) => {
+                  if ((e.ctrlKey || e.metaKey) && e.key === "Enter") {
+                    e.preventDefault();
+                    submitReview();
+                  }
+                },
+              }),
+              h("button", {
+                type: "button",
+                className: "review-send",
+                disabled: busy || !String(code || "").trim(),
+                onClick: submitReview,
+              }, busy ? "Memproses..." : "Kirim Script"),
+            ),
           ),
         ),
       );
@@ -2939,6 +3283,7 @@ function startDashboard({ client, rest, clientId, getCommandsBody, syncGuildComm
   const port = toInt(process.env.DASHBOARD_PORT, 3001);
   const appName = String(process.env.DASHBOARD_TITLE || "LYVA Bot Dashboard").trim();
   const sessions = new Map();
+  const publicReviewRateStore = new Map();
 
   const server = http.createServer(async (req, res) => {
     try {
@@ -3079,6 +3424,124 @@ function startDashboard({ client, rest, clientId, getCommandsBody, syncGuildComm
             studioLiteCount,
             commandHint: "/review /asset",
           },
+        });
+        return;
+      }
+
+      if (method === "POST" && url.pathname === "/api/public/review") {
+        const clientIp = String(req.headers["x-forwarded-for"] || "")
+          .split(",")[0]
+          .trim() ||
+          String(req.socket?.remoteAddress || "anon");
+        const gate = checkPublicReviewRateLimit(publicReviewRateStore, clientIp);
+        if (!gate.ok) {
+          sendJson(res, 429, {
+            ok: false,
+            error: "Terlalu banyak request. Coba lagi sebentar.",
+          });
+          return;
+        }
+
+        const body = await readJsonBody(req, PUBLIC_REVIEW_MAX_JSON_BYTES);
+        const mode = ["paste", "local", "ai"].includes(String(body.mode || "").toLowerCase())
+          ? String(body.mode || "").toLowerCase()
+          : "paste";
+        const filenameRaw = String(body.filename || "Script.lua").trim();
+        const filename = filenameRaw ? filenameRaw.slice(0, 80) : "Script.lua";
+        const rawCode = String(body.code || "");
+        const fullCode = normalizeCodeInput(rawCode);
+
+        if (!fullCode.trim()) {
+          sendJson(res, 400, { ok: false, error: "Script kosong. Tempel script dulu." });
+          return;
+        }
+        if (fullCode.length > PUBLIC_REVIEW_MAX_CHARS) {
+          sendJson(res, 400, {
+            ok: false,
+            error: `Script terlalu panjang. Maksimal ${PUBLIC_REVIEW_MAX_CHARS} karakter.`,
+          });
+          return;
+        }
+
+        const analysis = analyzeCode(fullCode, filename, {
+          pack: "all",
+          ignoredRules: [],
+          rawSource: rawCode,
+        });
+
+        let output = "";
+        if (mode === "local") {
+          output = [formatSignalScan(analysis.meta.signals), "", formatFindings(analysis.findings, analysis.meta)].join("\n");
+        } else if (mode === "ai") {
+          if (!PUBLIC_REVIEW_AI_ENABLED) {
+            sendJson(res, 403, { ok: false, error: "Mode AI sementara dimatikan oleh admin." });
+            return;
+          }
+          const apiKey = String(process.env.OPENAI_API_KEY || "").trim();
+          if (!apiKey) {
+            sendJson(res, 400, { ok: false, error: "OPENAI_API_KEY belum diset di server." });
+            return;
+          }
+
+          const focused = buildIssueFocusedInput(fullCode, analysis.findings, {
+            radius: 6,
+            maxSnippets: 3,
+            maxChars: 4200,
+          });
+          let aiResult;
+          try {
+            aiResult = await requestOpenAIReview({
+              apiKey,
+              model: process.env.OPENAI_MODEL || undefined,
+              filename,
+              code: focused.code,
+              ruleFindings: analysis.findings,
+              signalSummary: formatSignalScan(analysis.meta.signals),
+              issueContext: focused.context,
+            });
+          } catch (error) {
+            const status = Number(error?.status || 0);
+            if (status === 429) {
+              sendJson(res, 429, { ok: false, error: "AI sedang sibuk/rate limit. Coba lagi sebentar." });
+              return;
+            }
+            if (status === 401 || status === 403) {
+              sendJson(res, 500, { ok: false, error: "Kunci API AI di server bermasalah." });
+              return;
+            }
+            sendJson(res, 500, { ok: false, error: `AI error: ${error?.message || "unknown"}` });
+            return;
+          }
+          output = [
+            formatAIReviewReport(aiResult),
+            "",
+            `AI Input Mode: focused issue snippets (${focused.snippetCount} block)`,
+            "",
+            "**Rule Context (Local Engine)**",
+            formatFindings(analysis.findings, analysis.meta),
+          ].join("\n");
+        } else {
+          const codeBlocks = formatCodeForDiscord(fullCode, "lua");
+          const codePreview = codeBlocks.slice(0, 2).join("\n\n");
+          output = [
+            codePreview,
+            "",
+            formatSignalScan(analysis.meta.signals),
+            "",
+            buildChecklistMessage(analysis.findings, analysis.facts),
+            "",
+            formatFindings(analysis.findings, analysis.meta),
+            "",
+            buildFeedbackTemplate(analysis.findings),
+          ].join("\n");
+        }
+
+        sendJson(res, 200, {
+          ok: true,
+          mode,
+          filename,
+          usedChars: fullCode.length,
+          output: clipReviewOutput(output),
         });
         return;
       }
