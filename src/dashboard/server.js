@@ -392,6 +392,51 @@ function buildPage({ appName, authed }) {
         var(--bg);
       min-height: 100vh;
     }
+    .page-loader {
+      position: fixed;
+      inset: 0;
+      z-index: 99999;
+      background: #000;
+      display: grid;
+      place-items: center;
+      transition: opacity .25s ease;
+    }
+    .page-loader.is-hidden {
+      opacity: 0;
+      pointer-events: none;
+    }
+    #load {
+      position: relative;
+      width: 600px;
+      height: 36px;
+      overflow: visible;
+      user-select: none;
+      cursor: default;
+    }
+    #load div {
+      position: absolute;
+      width: 20px;
+      height: 36px;
+      opacity: 0;
+      font-family: Helvetica, Arial, sans-serif;
+      animation: move 2s linear infinite;
+      transform: rotate(180deg);
+      color: #35c4f0;
+      font-size: 26px;
+      font-weight: 700;
+    }
+    #load div:nth-child(2) { animation-delay: 0.2s; }
+    #load div:nth-child(3) { animation-delay: 0.4s; }
+    #load div:nth-child(4) { animation-delay: 0.6s; }
+    #load div:nth-child(5) { animation-delay: 0.8s; }
+    #load div:nth-child(6) { animation-delay: 1s; }
+    #load div:nth-child(7) { animation-delay: 1.2s; }
+    @keyframes move {
+      0% { left: 0; opacity: 0; }
+      35% { left: 41%; transform: rotate(0deg); opacity: 1; }
+      65% { left: 59%; transform: rotate(0deg); opacity: 1; }
+      100% { left: 100%; transform: rotate(-180deg); opacity: 0; }
+    }
     .wrap { max-width: 1320px; margin: 0 auto; padding: 18px; }
     .hidden { display: none !important; }
     .panel {
@@ -620,6 +665,17 @@ function buildPage({ appName, authed }) {
   </style>
 </head>
 <body>
+  <div id="pageLoader" class="page-loader" aria-label="Memuat halaman">
+    <div id="load">
+      <div>G</div>
+      <div>N</div>
+      <div>I</div>
+      <div>D</div>
+      <div>A</div>
+      <div>O</div>
+      <div>L</div>
+    </div>
+  </div>
   <div class="wrap">
     <section id="loginView" class="panel login-shell ${authed ? "hidden" : ""}">
       <h2>${safeName}</h2>
@@ -732,6 +788,15 @@ function buildPage({ appName, authed }) {
   </div>
 
   <script>
+    function hidePageLoader() {
+      const el = document.getElementById("pageLoader");
+      if (!el) return;
+      el.classList.add("is-hidden");
+      setTimeout(() => {
+        if (el && el.parentNode) el.parentNode.removeChild(el);
+      }, 260);
+    }
+
     const isAuthed = ${authed ? "true" : "false"};
     const dashboardMaxUploadFiles = ${MAX_UPLOAD_FILES};
     const dashboardMaxUploadBytesPerFile = ${MAX_UPLOAD_BYTES_PER_FILE};
@@ -1191,6 +1256,8 @@ function buildPage({ appName, authed }) {
     if (isAuthed) {
       refreshSummary();
     }
+    hidePageLoader();
+    window.addEventListener("load", hidePageLoader);
   </script>
 </body>
 </html>`;
@@ -1256,6 +1323,51 @@ function buildMemberPage({
         radial-gradient(900px 420px at 110% -20%, #dfe8ff 0%, transparent 55%),
         radial-gradient(900px 420px at -20% -10%, #f8dfe9 0%, transparent 55%),
         var(--bg);
+    }
+    .page-loader {
+      position: fixed;
+      inset: 0;
+      z-index: 99999;
+      background: #000;
+      display: grid;
+      place-items: center;
+      transition: opacity .25s ease;
+    }
+    .page-loader.is-hidden {
+      opacity: 0;
+      pointer-events: none;
+    }
+    #load {
+      position: relative;
+      width: 600px;
+      height: 36px;
+      overflow: visible;
+      user-select: none;
+      cursor: default;
+    }
+    #load div {
+      position: absolute;
+      width: 20px;
+      height: 36px;
+      opacity: 0;
+      font-family: Helvetica, Arial, sans-serif;
+      animation: move 2s linear infinite;
+      transform: rotate(180deg);
+      color: #35c4f0;
+      font-size: 26px;
+      font-weight: 700;
+    }
+    #load div:nth-child(2) { animation-delay: 0.2s; }
+    #load div:nth-child(3) { animation-delay: 0.4s; }
+    #load div:nth-child(4) { animation-delay: 0.6s; }
+    #load div:nth-child(5) { animation-delay: 0.8s; }
+    #load div:nth-child(6) { animation-delay: 1s; }
+    #load div:nth-child(7) { animation-delay: 1.2s; }
+    @keyframes move {
+      0% { left: 0; opacity: 0; }
+      35% { left: 41%; transform: rotate(0deg); opacity: 1; }
+      65% { left: 59%; transform: rotate(0deg); opacity: 1; }
+      100% { left: 100%; transform: rotate(-180deg); opacity: 0; }
     }
     a { color: inherit; }
 
@@ -2292,6 +2404,17 @@ function buildMemberPage({
   </style>
 </head>
 <body>
+  <div id="pageLoader" class="page-loader" aria-label="Memuat halaman">
+    <div id="load">
+      <div>G</div>
+      <div>N</div>
+      <div>I</div>
+      <div>D</div>
+      <div>A</div>
+      <div>O</div>
+      <div>L</div>
+    </div>
+  </div>
   <div id="app" style="padding:16px;font-family:Arial,sans-serif;color:#1f2f52;">Memuat halaman...</div>
 
   <script
@@ -2305,11 +2428,21 @@ function buildMemberPage({
     onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/npm/react-dom@18/umd/react-dom.production.min.js';"
   ></script>
   <script>
+    function hidePageLoader() {
+      const el = document.getElementById("pageLoader");
+      if (!el) return;
+      el.classList.add("is-hidden");
+      setTimeout(() => {
+        if (el && el.parentNode) el.parentNode.removeChild(el);
+      }, 260);
+    }
+
     if (location.protocol !== "https:" && !/^(localhost|127\\.0\\.0\\.1)$/i.test(location.hostname)) {
       location.replace("https://" + location.host + location.pathname + location.search + location.hash);
     }
 
     function showFatal(msg) {
+      hidePageLoader();
       const rootEl = document.getElementById("app");
       if (!rootEl) return;
       rootEl.innerHTML = "<div style='padding:16px;font-family:Arial,sans-serif;color:#1f2f52'>"
@@ -3109,6 +3242,8 @@ function buildMemberPage({
     }
 
     createRoot(document.getElementById("app")).render(h(RenderBoundary, null, h(App)));
+    requestAnimationFrame(hidePageLoader);
+    window.addEventListener("load", hidePageLoader);
     }
   </script>
 </body>
