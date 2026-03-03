@@ -2891,7 +2891,7 @@ function buildMemberPage({
           role: "bot",
           title: "Lyva Review",
           content:
-            "Tempel script Luau/Roblox kamu di bawah, pilih mode review, lalu klik Kirim.\n\n- Review Paste: local engine + checklist + template feedback\n- Local Engine: local analyzer cepat\n- AI Review: analisa AI + context local engine",
+            "Tempel script Luau/Roblox kamu di bawah, pilih mode review, lalu klik Kirim. Mode Review Paste = local engine + checklist + template feedback, Local Engine = analyzer cepat, AI Review = analisa AI + context local engine.",
         },
       ]);
       const logRef = React.useRef(null);
@@ -2909,7 +2909,7 @@ function buildMemberPage({
           prev.concat({
             role: "user",
             title: "Kamu",
-            content: fullCode.length > 2500 ? (fullCode.slice(0, 2500) + "\n\n... [input dipotong di tampilan]") : fullCode,
+            content: fullCode.length > 2500 ? (fullCode.slice(0, 2500) + " ... [input dipotong di tampilan]") : fullCode,
           }),
         );
         setBusy(true);
