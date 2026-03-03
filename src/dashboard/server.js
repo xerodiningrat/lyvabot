@@ -1111,7 +1111,7 @@ function buildMemberPage({ title = MEMBER_PAGE_TITLE, promoUrl = MEMBER_PROMO_UR
     .wrap { max-width: 1500px; margin: 0 auto; }
     .layout {
       display: grid;
-      grid-template-columns: 84px minmax(0, 1fr);
+      grid-template-columns: 220px minmax(0, 1fr);
       gap: 12px;
       align-items: start;
     }
@@ -1122,25 +1122,27 @@ function buildMemberPage({ title = MEMBER_PAGE_TITLE, promoUrl = MEMBER_PROMO_UR
       box-shadow: var(--shadow);
     }
     .sidebar {
-      padding: 10px 8px;
+      padding: 12px;
       position: sticky;
       top: 12px;
       display: grid;
       gap: 10px;
-      justify-items: center;
-      min-height: calc(100vh - 24px);
+      justify-items: stretch;
+      align-content: start;
     }
     .logo-pill {
-      width: 52px;
-      height: 52px;
+      width: 100%;
+      height: auto;
       border-radius: 14px;
-      display: grid;
-      place-items: center;
+      display: flex;
+      align-items: center;
+      justify-content: center;
       background: linear-gradient(135deg, #ff9d3c, #ff6c00);
       color: #fff;
       font-weight: 800;
-      font-size: 18px;
+      font-size: 16px;
       border: 1px solid #ffc593;
+      padding: 12px 10px;
     }
     .menu {
       display: grid;
@@ -1151,16 +1153,15 @@ function buildMemberPage({ title = MEMBER_PAGE_TITLE, promoUrl = MEMBER_PROMO_UR
       width: 100%;
       border: 1px solid var(--line);
       border-radius: 12px;
-      padding: 9px 6px;
+      padding: 10px 12px;
       background: #fff;
       color: #2b466f;
       font-weight: 700;
       cursor: pointer;
-      font-size: 11px;
-      line-height: 1.2;
-      display: grid;
-      gap: 3px;
-      justify-items: center;
+      font-size: 13px;
+      line-height: 1.3;
+      text-align: left;
+      display: block;
     }
     .menu button.active {
       background: #fff2e6;
@@ -1168,18 +1169,6 @@ function buildMemberPage({ title = MEMBER_PAGE_TITLE, promoUrl = MEMBER_PROMO_UR
       color: #9d4f00;
     }
     .content { display: grid; gap: 10px; }
-    .install-bar {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      gap: 10px;
-      padding: 10px 12px;
-      background: #f4f0ff;
-      border-color: #ddd2ff;
-      color: #3c2f7c;
-      font-size: 13px;
-      font-weight: 600;
-    }
     .topbar {
       display: flex;
       justify-content: space-between;
@@ -1379,26 +1368,6 @@ function buildMemberPage({ title = MEMBER_PAGE_TITLE, promoUrl = MEMBER_PROMO_UR
     }
     .asset-meta { color: var(--muted); font-size: 12px; line-height: 1.45; }
     .asset-actions { display: flex; flex-wrap: wrap; gap: 6px; }
-    .chip-row {
-      display: flex;
-      gap: 8px;
-      flex-wrap: wrap;
-      margin-top: 2px;
-    }
-    .chip {
-      border: 1px solid var(--line);
-      background: #fff;
-      border-radius: 999px;
-      padding: 8px 12px;
-      font-size: 12px;
-      font-weight: 700;
-      color: #304d78;
-    }
-    .chip.active {
-      border-color: #ffc08a;
-      background: #fff1e4;
-      color: #9d4f00;
-    }
     .empty { color: var(--muted); font-size: 13px; padding: 12px; border: 1px dashed #ccd8ea; border-radius: 10px; background: #fbfdff; }
     .review-grid {
       padding: 14px;
@@ -1420,11 +1389,11 @@ function buildMemberPage({ title = MEMBER_PAGE_TITLE, promoUrl = MEMBER_PROMO_UR
       .sidebar {
         position: static;
         min-height: 0;
-        grid-template-columns: 52px 1fr;
-        align-items: start;
+        grid-template-columns: 1fr;
+        justify-items: stretch;
       }
       .menu {
-        grid-template-columns: repeat(4, minmax(0, 1fr));
+        grid-template-columns: repeat(2, minmax(0, 1fr));
       }
       .grid { grid-template-columns: repeat(2, minmax(0,1fr)); }
       .features { grid-template-columns: 1fr; }
@@ -1450,21 +1419,16 @@ function buildMemberPage({ title = MEMBER_PAGE_TITLE, promoUrl = MEMBER_PROMO_UR
   <div class="wrap">
     <div class="layout">
       <aside class="panel sidebar">
-        <div class="logo-pill">L</div>
+        <div class="logo-pill">LYVA MENU</div>
         <div class="menu">
-          <button class="active" data-target="section-home"><span>🏠</span><span>Home</span></button>
-          <button data-target="section-pc"><span>🖥️</span><span>Asset PC</span></button>
-          <button data-target="section-hp"><span>📱</span><span>Asset HP</span></button>
-          <button data-target="section-review"><span>🤖</span><span>Review AI</span></button>
+          <button class="active" data-target="section-home">Home</button>
+          <button data-target="section-pc">Asset PC</button>
+          <button data-target="section-hp">Asset HP</button>
+          <button data-target="section-review">Review AI</button>
         </div>
       </aside>
 
       <main class="content">
-        <div class="panel install-bar">
-          <span>Top up, free asset, dan review AI lebih cepat di ekosistem LYVA</span>
-          <a class="btn small" href="${safePromo}" target="_blank" rel="noreferrer">Install / Cek</a>
-        </div>
-
         <div class="panel topbar">
           <div class="brand-wrap">
             <div class="brand-mark">L</div>
@@ -1483,7 +1447,7 @@ function buildMemberPage({ title = MEMBER_PAGE_TITLE, promoUrl = MEMBER_PROMO_UR
           <div class="hero">
             <div class="hero-banner">
               <div>
-                <div class="hero-badge">⚡ Fokus Free Asset + Review AI</div>
+                <div class="hero-badge">Fokus Free Asset + Review AI</div>
                 <h1>Free Asset Roblox<br/>dan AI Review</h1>
                 <p>Koleksi asset gratis untuk PC/HP, plus fitur analisis script AI biar coding kamu lebih aman dan rapi.</p>
                 <div class="row" style="margin-top:10px;">
@@ -1505,12 +1469,6 @@ function buildMemberPage({ title = MEMBER_PAGE_TITLE, promoUrl = MEMBER_PROMO_UR
               <a class="btn" href="${safePromo}" target="_blank" rel="noreferrer">Promo LYVA</a>
               ${hasDiscord ? `<a class="btn secondary" href="${safeDiscord}" target="_blank" rel="noreferrer">Masuk Discord</a>` : ""}
               <a class="btn alt" href="/dashboard">Admin Dashboard</a>
-            </div>
-            <div class="chip-row" id="homeFilterChips">
-              <button class="chip active" data-filter="all">🔥 Lagi Populer</button>
-              <button class="chip" data-filter="pc">Asset PC</button>
-              <button class="chip" data-filter="hp">Asset HP</button>
-              <button class="chip" data-filter="review">Review AI</button>
             </div>
             <div class="grid" id="statGrid"></div>
           </div>
@@ -1583,12 +1541,11 @@ function buildMemberPage({ title = MEMBER_PAGE_TITLE, promoUrl = MEMBER_PROMO_UR
     const searchPcInput = document.getElementById("searchPcInput");
     const searchHpInput = document.getElementById("searchHpInput");
     const globalSearchInput = document.getElementById("globalSearchInput");
-    const homeFilterChips = Array.from(document.querySelectorAll("#homeFilterChips .chip"));
     const menuButtons = Array.from(document.querySelectorAll(".menu button"));
     const jumpButtons = Array.from(document.querySelectorAll(".jump-tab"));
     const sections = Array.from(document.querySelectorAll(".section"));
 
-    let state = { pcAssets: [], hpAssets: [], summary: {}, homeFilter: "all" };
+    let state = { pcAssets: [], hpAssets: [], summary: {} };
 
     function stat(label, value) {
       const el = document.createElement("div");
@@ -1714,22 +1671,6 @@ function buildMemberPage({ title = MEMBER_PAGE_TITLE, promoUrl = MEMBER_PROMO_UR
       list.forEach((item) => hpGrid.appendChild(createHpCard(item)));
     }
 
-    function setHomeFilter(filterValue) {
-      state.homeFilter = filterValue;
-      homeFilterChips.forEach((chip) => {
-        chip.classList.toggle("active", chip.dataset.filter === filterValue);
-      });
-      if (filterValue === "pc") {
-        setSection("section-pc");
-      } else if (filterValue === "hp") {
-        setSection("section-hp");
-      } else if (filterValue === "review") {
-        setSection("section-review");
-      } else {
-        setSection("section-home");
-      }
-    }
-
     async function loadCatalog() {
       const res = await fetch("/api/public/catalog");
       const data = await res.json();
@@ -1756,9 +1697,6 @@ function buildMemberPage({ title = MEMBER_PAGE_TITLE, promoUrl = MEMBER_PROMO_UR
     });
     jumpButtons.forEach((btn) => {
       btn.addEventListener("click", () => setSection(btn.dataset.jump));
-    });
-    homeFilterChips.forEach((chip) => {
-      chip.addEventListener("click", () => setHomeFilter(chip.dataset.filter || "all"));
     });
     searchPcInput.addEventListener("input", renderPcAssets);
     searchHpInput.addEventListener("input", renderHpAssets);
@@ -2254,3 +2192,7 @@ function startDashboard({ client, rest, clientId, getCommandsBody, syncGuildComm
 module.exports = {
   startDashboard,
 };
+
+
+
+
