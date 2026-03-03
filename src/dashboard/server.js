@@ -1083,26 +1083,26 @@ function buildMemberPage({ title = MEMBER_PAGE_TITLE, promoUrl = MEMBER_PROMO_UR
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>${safeTitle}</title>
   <style>
-    @import url("https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&display=swap");
+    @import url("https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap");
     :root {
-      --bg: #091224;
-      --bg-soft: #132243;
-      --panel: #162747;
-      --line: #2b4472;
-      --text: #e9f0ff;
-      --muted: #94abd8;
-      --brand: #22c55e;
-      --brand2: #38bdf8;
-      --accent: #f59e0b;
+      --bg: #f4f7fc;
+      --bg-soft: #fdfefe;
+      --panel: #ffffff;
+      --line: #dde4ef;
+      --text: #10213f;
+      --muted: #62748b;
+      --brand: #ff7a00;
+      --brand2: #2274e6;
+      --accent: #0ea765;
       --danger: #ef4444;
     }
     * { box-sizing: border-box; margin: 0; }
     body {
-      font-family: "Nunito", "Segoe UI", sans-serif;
+      font-family: "Plus Jakarta Sans", "Segoe UI", sans-serif;
       color: var(--text);
       background:
-        radial-gradient(900px 500px at 7% -10%, #2a4a85 0%, transparent 60%),
-        radial-gradient(900px 500px at 100% 0%, #1c4b74 0%, transparent 55%),
+        radial-gradient(1000px 520px at 8% -20%, #ffe8d1 0%, transparent 60%),
+        radial-gradient(1000px 520px at 100% -20%, #ddebff 0%, transparent 55%),
         var(--bg);
       min-height: 100vh;
       padding: 16px;
@@ -1117,18 +1117,18 @@ function buildMemberPage({ title = MEMBER_PAGE_TITLE, promoUrl = MEMBER_PROMO_UR
     .panel {
       border: 1px solid var(--line);
       border-radius: 16px;
-      background: linear-gradient(180deg, #162540 0%, #17213b 100%);
-      box-shadow: 0 14px 34px rgba(0,0,0,.22);
+      background: var(--panel);
+      box-shadow: 0 12px 28px rgba(18, 34, 65, 0.08);
     }
     .sidebar { padding: 14px; position: sticky; top: 16px; display: grid; gap: 10px; }
     .logo {
       border-radius: 12px;
-      border: 1px solid var(--line);
+      border: 1px solid #ffd6b0;
       padding: 12px;
-      background: linear-gradient(135deg, #21408a, #7c3aed);
+      background: linear-gradient(135deg, #ff9f43, #ff6a00);
     }
-    .logo h2 { font-size: 20px; font-weight: 900; }
-    .logo p { margin-top: 4px; font-size: 12px; color: #dce8ff; }
+    .logo h2 { font-size: 20px; font-weight: 800; color: #fff; }
+    .logo p { margin-top: 4px; font-size: 12px; color: #ffe7d2; }
     .menu { display: grid; gap: 8px; }
     .menu button {
       width: 100%;
@@ -1136,22 +1136,22 @@ function buildMemberPage({ title = MEMBER_PAGE_TITLE, promoUrl = MEMBER_PROMO_UR
       border: 1px solid var(--line);
       border-radius: 10px;
       padding: 10px 11px;
-      background: #101c35;
-      color: #d8e5ff;
-      font-weight: 800;
+      background: #fff;
+      color: #2a456f;
+      font-weight: 700;
       cursor: pointer;
     }
     .menu button.active {
-      background: #1b2d53;
-      border-color: #4c6cb2;
-      color: #ffffff;
+      background: #fff2e6;
+      border-color: #ffc490;
+      color: #9d4f00;
     }
     .content { display: grid; gap: 12px; }
     .section { display: none; }
     .section.active { display: block; }
     .hero { padding: 18px; display: grid; gap: 10px; }
-    .title { font-size: 34px; font-weight: 900; letter-spacing: .2px; }
-    .sub { color: var(--muted); font-size: 15px; line-height: 1.55; }
+    .title { font-size: 32px; font-weight: 800; letter-spacing: .2px; color: #143662; }
+    .sub { color: var(--muted); font-size: 14px; line-height: 1.55; }
     .row { display: flex; gap: 8px; flex-wrap: wrap; }
     a.btn, button.btn {
       display: inline-flex;
@@ -1159,14 +1159,15 @@ function buildMemberPage({ title = MEMBER_PAGE_TITLE, promoUrl = MEMBER_PROMO_UR
       justify-content: center;
       gap: 6px;
       border: 0;
-      border-radius: 11px;
-      padding: 11px 14px;
-      color: #091120;
+      border-radius: 10px;
+      padding: 10px 13px;
+      color: #fff;
       text-decoration: none;
-      font-weight: 800;
+      font-weight: 700;
       cursor: pointer;
       background: var(--brand);
     }
+    a.btn:hover, button.btn:hover { filter: brightness(.96); }
     a.btn.secondary, button.btn.secondary { background: var(--brand2); }
     a.btn.alt, button.btn.alt { background: var(--accent); }
     a.btn.small {
@@ -1174,28 +1175,37 @@ function buildMemberPage({ title = MEMBER_PAGE_TITLE, promoUrl = MEMBER_PROMO_UR
       border-radius: 9px;
       font-size: 12px;
     }
-    button.btn.copy { background: #3b82f6; color: #071122; }
-    button.btn.copy.ok { background: #22c55e; }
+    button.btn.copy { background: var(--brand2); color: #fff; }
+    button.btn.copy.ok { background: var(--accent); }
     .grid { display: grid; grid-template-columns: repeat(4, minmax(0,1fr)); gap: 10px; }
-    .stat { padding: 12px; border: 1px solid var(--line); border-radius: 12px; background: var(--bg-soft); }
-    .stat .k { color: var(--muted); font-size: 12px; font-weight: 700; }
-    .stat .v { font-size: 25px; font-weight: 900; margin-top: 5px; }
+    .stat { padding: 12px; border: 1px solid var(--line); border-radius: 12px; background: #fff; }
+    .stat .k { color: var(--muted); font-size: 11px; font-weight: 700; }
+    .stat .v { font-size: 22px; font-weight: 800; margin-top: 5px; color: #173a67; }
     .features { padding: 14px; display: grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap: 10px; }
-    .feature { border: 1px solid var(--line); border-radius: 12px; padding: 12px; background: #111d35; }
-    .feature h3 { font-size: 14px; margin-bottom: 6px; }
+    .feature { border: 1px solid var(--line); border-radius: 12px; padding: 12px; background: #fff; }
+    .feature h3 { font-size: 14px; margin-bottom: 6px; color: #1c3f6b; }
     .feature p { color: var(--muted); font-size: 13px; line-height: 1.45; }
     .catalog { padding: 14px; display: grid; gap: 10px; }
-    .search { width: 100%; padding: 11px 12px; border-radius: 10px; border: 1px solid var(--line); background: #0f1a31; color: var(--text); }
+    .search {
+      width: 100%;
+      padding: 11px 12px;
+      border-radius: 10px;
+      border: 1px solid var(--line);
+      background: #fff;
+      color: var(--text);
+      outline: none;
+    }
+    .search:focus { border-color: #ffbf88; box-shadow: 0 0 0 3px #ffe8d3; }
     .card-grid {
       display: grid;
       grid-template-columns: repeat(3, minmax(0, 1fr));
       gap: 12px;
     }
     .asset-card {
-      border: 1px solid #2c4270;
+      border: 1px solid var(--line);
       border-radius: 12px;
       overflow: hidden;
-      background: #0f1a30;
+      background: #fff;
       display: grid;
       grid-template-rows: 160px auto;
     }
@@ -1203,8 +1213,8 @@ function buildMemberPage({ title = MEMBER_PAGE_TITLE, promoUrl = MEMBER_PROMO_UR
       width: 100%;
       height: 160px;
       object-fit: cover;
-      background: #0d162c;
-      border-bottom: 1px solid #2c4270;
+      background: #f5f7fb;
+      border-bottom: 1px solid var(--line);
     }
     .asset-body {
       padding: 10px;
@@ -1213,13 +1223,14 @@ function buildMemberPage({ title = MEMBER_PAGE_TITLE, promoUrl = MEMBER_PROMO_UR
     }
     .asset-name {
       font-size: 14px;
-      font-weight: 900;
+      font-weight: 800;
       line-height: 1.3;
       word-break: break-word;
+      color: #1b3b64;
     }
     .asset-meta { color: var(--muted); font-size: 12px; line-height: 1.45; }
     .asset-actions { display: flex; flex-wrap: wrap; gap: 6px; }
-    .empty { color: var(--muted); font-size: 13px; }
+    .empty { color: var(--muted); font-size: 13px; padding: 12px; border: 1px dashed #ccd8ea; border-radius: 10px; background: #fbfdff; }
     .review-grid {
       padding: 14px;
       display: grid;
@@ -1230,9 +1241,9 @@ function buildMemberPage({ title = MEMBER_PAGE_TITLE, promoUrl = MEMBER_PROMO_UR
       border: 1px solid var(--line);
       border-radius: 12px;
       padding: 12px;
-      background: #101c35;
+      background: #fff;
     }
-    .card h4 { font-size: 14px; margin-bottom: 6px; }
+    .card h4 { font-size: 14px; margin-bottom: 6px; color: #1b3f6e; }
     .card p, .card li { color: var(--muted); font-size: 13px; line-height: 1.45; }
     .card ul { margin-left: 18px; display: grid; gap: 4px; }
     @media (max-width: 960px) {
@@ -1246,7 +1257,7 @@ function buildMemberPage({ title = MEMBER_PAGE_TITLE, promoUrl = MEMBER_PROMO_UR
     @media (max-width: 560px) {
       .grid { grid-template-columns: 1fr; }
       .card-grid { grid-template-columns: 1fr; }
-      .title { font-size: 28px; }
+      .title { font-size: 26px; }
     }
   </style>
 </head>
@@ -1274,7 +1285,7 @@ function buildMemberPage({ title = MEMBER_PAGE_TITLE, promoUrl = MEMBER_PROMO_UR
         <section class="panel section active" id="section-home">
           <div class="hero">
             <div class="title">${safeTitle}</div>
-            <div class="sub">Semua user/member bisa lihat fitur bot, cek daftar asset gratis, ambil file langsung dari web, dan lihat panduan review script.</div>
+            <div class="sub">Etalase digital ala marketplace: pilih kategori, lihat kartu produk, lalu download asset atau copy ID langsung.</div>
             <div class="row">
               <a class="btn" href="${safePromo}" target="_blank" rel="noreferrer">Promo LYVA</a>
               ${hasDiscord ? `<a class="btn secondary" href="${safeDiscord}" target="_blank" rel="noreferrer">Masuk Discord</a>` : ""}
