@@ -1083,37 +1083,43 @@ function buildMemberPage({ title = MEMBER_PAGE_TITLE, promoUrl = MEMBER_PROMO_UR
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>${safeTitle}</title>
   <style>
-    @import url("https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap");
+    @import url("https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;600;700&family=Sora:wght@400;500;600;700;800&display=swap");
     :root {
-      --bg: #f3f6fb;
+      --bg: #f4f7fd;
       --bg-soft: #f9fbff;
       --panel: #ffffff;
-      --line: #dde4ef;
-      --text: #132948;
-      --muted: #62758c;
-      --brand: #ff7a00;
-      --brand2: #2149d9;
-      --accent: #0ea765;
+      --line: #dbe3f1;
+      --text: #132949;
+      --muted: #667ea2;
+      --brand: #1f36b8;
+      --brand2: #f1577d;
+      --accent: #15b37d;
       --danger: #ef4444;
-      --shadow: 0 14px 34px rgba(16, 33, 66, 0.09);
+      --shadow: 0 15px 30px rgba(19, 39, 80, 0.08);
     }
     * { box-sizing: border-box; margin: 0; }
     body {
-      font-family: "Plus Jakarta Sans", "Segoe UI", sans-serif;
+      font-family: "Sora", "Segoe UI", sans-serif;
       color: var(--text);
       background:
-        radial-gradient(1000px 520px at 8% -20%, #ffe8d1 0%, transparent 60%),
-        radial-gradient(1000px 520px at 100% -20%, #ddebff 0%, transparent 55%),
+        radial-gradient(930px 430px at 100% -15%, #d9e4ff 0%, transparent 58%),
+        radial-gradient(850px 420px at -10% 0%, #ffe0e9 0%, transparent 56%),
         var(--bg);
       min-height: 100vh;
-      padding: 12px;
+      padding: 4px;
     }
-    .wrap { max-width: 1500px; margin: 0 auto; }
+    .wrap {
+      max-width: 1900px;
+      margin: 0 auto;
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      overflow: hidden;
+      box-shadow: var(--shadow);
+      background: #f7f9ff;
+    }
     .layout {
       display: grid;
-      grid-template-columns: 220px minmax(0, 1fr);
-      gap: 12px;
-      align-items: start;
+      grid-template-columns: 84px minmax(0, 1fr);
     }
     .panel {
       border: 1px solid var(--line);
@@ -1122,27 +1128,34 @@ function buildMemberPage({ title = MEMBER_PAGE_TITLE, promoUrl = MEMBER_PROMO_UR
       box-shadow: var(--shadow);
     }
     .sidebar {
-      padding: 12px;
+      padding: 10px 0;
       position: sticky;
-      top: 12px;
+      top: 4px;
       display: grid;
-      gap: 10px;
-      justify-items: stretch;
+      gap: 6px;
+      justify-items: center;
       align-content: start;
+      min-height: calc(100vh - 10px);
+      border-right: 1px solid var(--line);
+      border-radius: 0;
+      box-shadow: none;
+      background: #f9fbff;
     }
     .logo-pill {
-      width: 100%;
-      height: auto;
-      border-radius: 14px;
+      width: 44px;
+      height: 44px;
+      border-radius: 12px;
       display: flex;
       align-items: center;
       justify-content: center;
-      background: linear-gradient(135deg, #ff9d3c, #ff6c00);
+      background: linear-gradient(145deg, #2443d8, #f1577d);
       color: #fff;
-      font-weight: 800;
-      font-size: 16px;
-      border: 1px solid #ffc593;
-      padding: 12px 10px;
+      font-family: "Chakra Petch", "Sora", sans-serif;
+      font-weight: 700;
+      font-size: 17px;
+      border: 0;
+      padding: 0;
+      margin-bottom: 8px;
     }
     .menu {
       display: grid;
@@ -1151,142 +1164,268 @@ function buildMemberPage({ title = MEMBER_PAGE_TITLE, promoUrl = MEMBER_PROMO_UR
     }
     .menu button {
       width: 100%;
-      border: 1px solid var(--line);
-      border-radius: 12px;
-      padding: 10px 12px;
-      background: #fff;
-      color: #2b466f;
-      font-weight: 700;
+      border: 0;
+      border-left: 4px solid transparent;
+      border-radius: 0;
+      padding: 10px 4px;
+      background: transparent;
+      color: #36507a;
+      font-weight: 600;
       cursor: pointer;
-      font-size: 13px;
+      font-size: 12px;
       line-height: 1.3;
-      text-align: left;
-      display: block;
+      text-align: center;
+      display: grid;
+      justify-items: center;
+      gap: 7px;
+    }
+    .menu button::before {
+      content: attr(data-icon);
+      width: 26px;
+      height: 26px;
+      border-radius: 7px;
+      border: 1px solid #cad5ea;
+      background: #fff;
+      display: grid;
+      place-items: center;
+      font-family: "Chakra Petch", "Sora", sans-serif;
+      font-size: 12px;
+      font-weight: 700;
     }
     .menu button.active {
-      background: #fff2e6;
-      border-color: #ffc490;
-      color: #9d4f00;
+      background: #edf1ff;
+      border-left-color: var(--brand);
+      color: var(--brand);
     }
-    .content { display: grid; gap: 10px; }
+    .content { display: grid; gap: 14px; padding: 0 24px 24px; }
+    .install-strip {
+      border-bottom: 1px solid var(--line);
+      background: linear-gradient(90deg, rgba(241, 87, 125, 0.1), rgba(31, 54, 184, 0.1)), #eaf0fb;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 14px;
+      padding: 10px 20px;
+      font-size: 14px;
+      color: #2e4467;
+    }
+    .install-strip .close {
+      border: 0;
+      background: transparent;
+      font-size: 18px;
+      cursor: pointer;
+      color: #304764;
+      line-height: 1;
+    }
     .topbar {
+      border: 1px solid var(--line);
+      border-radius: 0 0 12px 12px;
+      box-shadow: none;
+      min-height: 74px;
+      background: var(--panel);
       display: flex;
       justify-content: space-between;
       align-items: center;
-      gap: 10px;
+      gap: 18px;
       flex-wrap: wrap;
-      padding: 10px 12px;
+      padding: 10px 24px;
     }
     .brand-wrap {
       display: inline-flex;
       align-items: center;
-      gap: 8px;
-      font-weight: 800;
-      color: #183764;
+      gap: 10px;
+      min-width: 250px;
+      font-family: "Chakra Petch", "Sora", sans-serif;
+      font-weight: 700;
+      color: #1b2f73;
+      text-transform: uppercase;
+      font-size: 23px;
+      line-height: 1;
     }
     .brand-mark {
-      width: 28px;
-      height: 28px;
-      border-radius: 8px;
-      background: linear-gradient(135deg, #ff9b36, #ff6f00);
+      width: 34px;
+      height: 34px;
+      border-radius: 9px;
+      background: linear-gradient(145deg, #233ec8, #f1577d);
       color: #fff;
       display: grid;
       place-items: center;
-      font-size: 14px;
-      font-weight: 800;
+      font-size: 15px;
+      font-weight: 700;
     }
     .search-wrap {
       flex: 1;
-      min-width: 250px;
-      max-width: 600px;
+      min-width: 280px;
+      max-width: 680px;
       position: relative;
     }
     .search-wrap input {
       width: 100%;
-      border: 1px solid #cfd9e8;
+      border: 1px solid #ccd6ea;
       border-radius: 999px;
-      padding: 11px 14px;
-      font-size: 13px;
+      padding: 12px 44px 12px 16px;
+      font-size: 14px;
       outline: none;
     }
+    .search-wrap span {
+      position: absolute;
+      right: 15px;
+      top: 10px;
+      color: #687fa5;
+      font-size: 18px;
+      line-height: 1;
+      pointer-events: none;
+    }
     .search-wrap input:focus {
-      border-color: #ffc08a;
-      box-shadow: 0 0 0 3px #ffe8d4;
+      border-color: #97acd5;
+      box-shadow: 0 0 0 3px #e9efff;
     }
     .top-actions {
       display: inline-flex;
-      gap: 8px;
+      gap: 10px;
       align-items: center;
       flex-wrap: wrap;
     }
-    .section { display: none; }
+    .section { display: none; animation: up 0.35s ease both; }
     .section.active { display: block; }
     .hero {
-      padding: 12px;
-      display: grid;
-      gap: 10px;
-    }
-    .hero-banner {
-      border-radius: 14px;
-      overflow: hidden;
-      border: 1px solid #d7e1f1;
-      background:
-        radial-gradient(600px 280px at 10% 20%, #5767e5 0%, transparent 60%),
-        radial-gradient(500px 260px at 90% 0%, #2c338f 0%, transparent 58%),
-        linear-gradient(135deg, #3039b7, #1d2576);
-      color: #fff;
-      min-height: 220px;
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      align-items: center;
       padding: 18px;
+      border: 1px solid var(--line);
+      border-radius: 20px;
+      background: linear-gradient(145deg, #f0f3ff, #f5f8ff);
       position: relative;
-    }
-    .hero-banner h1 {
-      font-size: 34px;
-      line-height: 1.2;
-      font-weight: 800;
-      margin-bottom: 8px;
-    }
-    .hero-banner p {
-      color: #d8e0ff;
-      font-size: 14px;
-      line-height: 1.5;
-      max-width: 520px;
-    }
-    .hero-badge {
-      display: inline-flex;
-      align-items: center;
-      gap: 6px;
-      font-size: 11px;
-      font-weight: 700;
-      color: #ffe5cf;
-      border: 1px solid rgba(255, 255, 255, 0.28);
-      border-radius: 999px;
-      padding: 5px 10px;
-      margin-bottom: 10px;
-      background: rgba(255, 255, 255, 0.08);
-    }
-    .hero-side {
+      overflow: hidden;
       display: grid;
-      justify-content: end;
+      gap: 12px;
+    }
+    .hero::before, .hero::after {
+      content: "";
+      position: absolute;
+      width: 34vw;
+      min-width: 240px;
+      max-width: 520px;
+      height: 74%;
+      top: 11%;
+      border-radius: 24px;
+      transform: skewX(-25deg);
+      background: linear-gradient(180deg, rgba(179, 194, 232, 0.2), rgba(179, 194, 232, 0.05));
+      z-index: 0;
+      pointer-events: none;
+    }
+    .hero::before { left: -6%; }
+    .hero::after { right: -6%; }
+    .hero-banner {
+      position: relative;
+      z-index: 1;
+      border-radius: 0;
+      border: 0;
+      background: transparent;
+      min-height: 0;
+      display: grid;
+      grid-template-columns: 1fr minmax(0, 1.6fr) 1fr;
+      gap: 12px;
+      padding: 0;
       align-items: center;
     }
-    .hero-card {
-      width: min(330px, 100%);
-      border-radius: 12px;
-      border: 1px solid rgba(255, 255, 255, 0.24);
-      background: rgba(255, 255, 255, 0.1);
-      padding: 12px;
-      backdrop-filter: blur(2px);
+    .hero-slide {
+      min-height: 220px;
+      border-radius: 18px;
+      border: 1px solid #ccdaf4;
+      overflow: hidden;
+      background-size: cover;
+      background-position: center;
+      position: relative;
+      opacity: 0.72;
+      transform: scale(0.95);
+      transition: all 0.35s ease;
     }
-    .hero-card h3 { font-size: 15px; margin-bottom: 6px; }
-    .hero-card p { font-size: 12px; color: #d8e0ff; }
+    .hero-slide.main {
+      min-height: 258px;
+      opacity: 1;
+      transform: scale(1);
+      box-shadow: 0 14px 30px rgba(18, 32, 80, 0.23);
+    }
+    .hero-slide::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(180deg, rgba(10, 19, 45, 0.25), rgba(10, 19, 45, 0.64));
+    }
+    .hero-copy {
+      position: absolute;
+      left: 14px;
+      right: 14px;
+      bottom: 12px;
+      z-index: 2;
+      color: #fff;
+      display: grid;
+      gap: 4px;
+    }
+    .hero-copy .kicker {
+      color: #d8e0ff;
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+      font-weight: 600;
+    }
+    .hero-copy h2, .hero-copy h3 {
+      margin: 0;
+      font-family: "Chakra Petch", "Sora", sans-serif;
+      line-height: 1.08;
+    }
+    .hero-copy h2 { font-size: 28px; }
+    .hero-copy h3 { font-size: 18px; }
+    .hero-copy p { margin: 0; font-size: 12px; color: #dbe4ff; }
+    .hero-btn {
+      margin-top: 6px;
+      width: fit-content;
+      border: 0;
+      border-radius: 999px;
+      padding: 8px 15px;
+      background: var(--brand2);
+      color: #fff;
+      text-decoration: none;
+      font-size: 12px;
+      font-weight: 700;
+      cursor: pointer;
+    }
+    .hero-dots {
+      position: relative;
+      z-index: 1;
+      margin: 0 auto;
+      display: flex;
+      justify-content: center;
+      gap: 6px;
+    }
+    .hero-dot {
+      width: 32px;
+      height: 6px;
+      border-radius: 999px;
+      border: 0;
+      background: #b5bfd4;
+      cursor: pointer;
+    }
+    .hero-dot.active { background: var(--brand2); }
     .title {
-      font-size: 28px;
-      font-weight: 800;
-      letter-spacing: .2px;
-      color: #183868;
+      margin: 10px 0 4px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-family: "Chakra Petch", "Sora", sans-serif;
+      font-size: 38px;
+      color: #142f62;
+    }
+    .title::before {
+      content: "!";
+      width: 28px;
+      height: 28px;
+      border-radius: 999px;
+      background: #ff6c73;
+      color: #fff;
+      display: inline-grid;
+      place-items: center;
+      font-weight: 700;
+      font-size: 16px;
     }
     .sub { color: var(--muted); font-size: 14px; line-height: 1.55; }
     .row { display: flex; gap: 8px; flex-wrap: wrap; }
@@ -1296,10 +1435,12 @@ function buildMemberPage({ title = MEMBER_PAGE_TITLE, promoUrl = MEMBER_PROMO_UR
       justify-content: center;
       gap: 6px;
       border: 0;
-      border-radius: 999px;
-      padding: 9px 13px;
+      border-radius: 10px;
+      min-height: 34px;
+      padding: 8px 12px;
       color: #fff;
       text-decoration: none;
+      font-size: 12px;
       font-weight: 700;
       cursor: pointer;
       background: var(--brand);
@@ -1308,201 +1449,273 @@ function buildMemberPage({ title = MEMBER_PAGE_TITLE, promoUrl = MEMBER_PROMO_UR
     a.btn.secondary, button.btn.secondary { background: var(--brand2); }
     a.btn.alt, button.btn.alt { background: var(--accent); }
     a.btn.small {
-      padding: 7px 10px;
       border-radius: 999px;
-      font-size: 12px;
+      min-height: 0;
+      padding: 7px 10px;
     }
-    button.btn.copy { background: var(--brand2); color: #fff; }
     button.btn.copy.ok { background: var(--accent); }
-    .grid { display: grid; grid-template-columns: repeat(4, minmax(0,1fr)); gap: 10px; }
-    .stat { padding: 12px; border: 1px solid var(--line); border-radius: 12px; background: #fff; }
-    .stat .k { color: var(--muted); font-size: 11px; font-weight: 700; }
-    .stat .v { font-size: 22px; font-weight: 800; margin-top: 5px; color: #173a67; }
-    .features { padding: 0 2px; display: grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap: 10px; }
-    .feature { border: 1px solid var(--line); border-radius: 12px; padding: 12px; background: #fff; box-shadow: var(--shadow); }
-    .feature h3 { font-size: 14px; margin-bottom: 6px; color: #1c3f6b; }
-    .feature p { color: var(--muted); font-size: 13px; line-height: 1.45; }
-    .catalog { padding: 14px; display: grid; gap: 10px; }
+    .grid {
+      margin-top: 4px;
+      display: grid;
+      gap: 10px;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+    }
+    .stat {
+      border: 1px solid #d8e1f3;
+      border-radius: 14px;
+      background: #fff;
+      padding: 12px;
+    }
+    .stat .k {
+      color: #7d8fb1;
+      font-size: 11px;
+      text-transform: uppercase;
+      font-weight: 600;
+    }
+    .stat .v {
+      margin-top: 6px;
+      font-family: "Chakra Petch", "Sora", sans-serif;
+      font-size: 24px;
+      color: #152f5f;
+      font-weight: 700;
+      line-height: 1;
+    }
+    .category-pills {
+      margin: 12px 0 6px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 9px;
+    }
+    .cat-pill {
+      border: 1px solid #c6d2e9;
+      border-radius: 999px;
+      padding: 9px 15px;
+      background: #fff;
+      color: #385174;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+    .cat-pill.active {
+      background: linear-gradient(140deg, #1d39c4, #f1577d);
+      color: #fff;
+      border-color: transparent;
+      box-shadow: 0 9px 18px rgba(44, 58, 152, 0.26);
+    }
+    .catalog { border: 1px solid var(--line); border-radius: 16px; background: #fff; box-shadow: var(--shadow); padding: 16px; display: grid; gap: 12px; }
     .search {
       width: 100%;
-      padding: 11px 12px;
-      border-radius: 10px;
-      border: 1px solid var(--line);
+      max-width: 420px;
+      padding: 10px 14px;
+      border-radius: 999px;
+      border: 1px solid #cad5ea;
       background: #fff;
       color: var(--text);
       outline: none;
+      font-size: 14px;
     }
-    .search:focus { border-color: #ffbf88; box-shadow: 0 0 0 3px #ffe8d3; }
-    .card-grid {
+    .search:focus { border-color: #96a8d2; box-shadow: 0 0 0 3px #e9efff; }
+    .card-grid, .popular-grid {
       display: grid;
-      grid-template-columns: repeat(3, minmax(0, 1fr));
-      gap: 12px;
+      gap: 14px;
+      grid-template-columns: repeat(5, minmax(0, 1fr));
     }
     .asset-card {
-      border: 1px solid var(--line);
-      border-radius: 12px;
+      border: 1px solid #d9e3f3;
+      border-radius: 14px;
       overflow: hidden;
       background: #fff;
       display: grid;
-      grid-template-rows: 160px auto;
-      box-shadow: var(--shadow);
+      grid-template-rows: 176px auto;
+      box-shadow: 0 11px 20px rgba(24, 41, 80, 0.06);
     }
     .thumb {
       width: 100%;
-      height: 160px;
+      height: 176px;
       object-fit: cover;
-      background: #f5f7fb;
-      border-bottom: 1px solid var(--line);
+      display: block;
+      background: #edf2fb;
+      border-bottom: 1px solid #dbe4f4;
     }
     .asset-body {
-      padding: 10px;
+      padding: 11px 12px 13px;
       display: grid;
       gap: 8px;
     }
     .asset-name {
-      font-size: 14px;
-      font-weight: 800;
-      line-height: 1.3;
+      font-family: "Chakra Petch", "Sora", sans-serif;
+      font-size: 24px;
+      line-height: 1.18;
+      color: #132d5a;
+      min-height: 56px;
       word-break: break-word;
-      color: #1b3b64;
+      font-weight: 700;
     }
-    .asset-meta { color: var(--muted); font-size: 12px; line-height: 1.45; }
+    .asset-meta { color: #6e82a8; font-size: 12px; line-height: 1.45; min-height: 33px; }
     .asset-actions { display: flex; flex-wrap: wrap; gap: 6px; }
-    .empty { color: var(--muted); font-size: 13px; padding: 12px; border: 1px dashed #ccd8ea; border-radius: 10px; background: #fbfdff; }
+    .empty { color: #66799d; font-size: 13px; padding: 14px; border: 1px dashed #ced9ed; border-radius: 12px; background: #fafdff; }
+    .hide { display: none !important; }
+    @keyframes up {
+      from { opacity: 0; transform: translateY(8px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
     .review-grid {
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      background: #fff;
+      box-shadow: var(--shadow);
       padding: 14px;
       display: grid;
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-      gap: 10px;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 12px;
     }
     .card {
-      border: 1px solid var(--line);
+      border: 1px solid #d9e3f3;
       border-radius: 12px;
       padding: 12px;
-      background: #fff;
+      background: #fbfcff;
     }
-    .card h4 { font-size: 14px; margin-bottom: 6px; color: #1b3f6e; }
-    .card p, .card li { color: var(--muted); font-size: 13px; line-height: 1.45; }
+    .card h4 { font-size: 16px; color: #203b72; }
+    .card p, .card li { color: #63779e; font-size: 13px; line-height: 1.45; }
     .card ul { margin-left: 18px; display: grid; gap: 4px; }
-    @media (max-width: 960px) {
+    @media (max-width: 1280px) {
+      .card-grid, .popular-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+      .asset-name { font-size: 20px; min-height: 46px; }
+    }
+    @media (max-width: 1060px) {
+      .wrap { border-radius: 0; }
       .layout { grid-template-columns: 1fr; }
       .sidebar {
         position: static;
         min-height: 0;
-        grid-template-columns: 1fr;
-        justify-items: stretch;
+        grid-template-columns: 60px repeat(4, minmax(0, 1fr));
+        align-items: center;
+        padding: 8px;
+        border-right: 0;
+        border-bottom: 1px solid var(--line);
       }
-      .menu {
-        grid-template-columns: repeat(2, minmax(0, 1fr));
+      .logo-pill { margin: 0; }
+      .menu { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+      .menu button {
+        border-left: 0;
+        border-bottom: 3px solid transparent;
+        border-radius: 0;
+        padding: 10px 2px;
       }
-      .grid { grid-template-columns: repeat(2, minmax(0,1fr)); }
-      .features { grid-template-columns: 1fr; }
-      .card-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-      .review-grid { grid-template-columns: 1fr; }
-      .hero-banner {
-        grid-template-columns: 1fr;
-        min-height: 0;
-        gap: 12px;
-      }
-      .hero-side {
-        justify-content: start;
-      }
+      .menu button.active { border-bottom-color: var(--brand); }
+      .content { padding: 0 12px 12px; }
+      .topbar { padding: 10px 12px; gap: 10px; }
+      .brand-wrap { min-width: 0; font-size: 19px; }
+      .hero-banner { grid-template-columns: 1fr; }
+      .hero-slide { min-height: 180px; opacity: 1; transform: scale(1); }
+      .hero-slide.main { min-height: 210px; }
+      .hero-slide.side { display: none; }
+      .grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .card-grid, .popular-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+      .review-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
     }
-    @media (max-width: 560px) {
-      .grid { grid-template-columns: 1fr; }
-      .card-grid { grid-template-columns: 1fr; }
-      .title { font-size: 26px; }
+    @media (max-width: 760px) {
+      body { padding: 0; }
+      .install-strip { padding: 8px 10px; gap: 8px; font-size: 12px; }
+      .top-actions { width: 100%; justify-content: flex-end; }
+      .card-grid, .popular-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .title { font-size: 28px; }
+      .review-grid { grid-template-columns: 1fr; }
+    }
+    @media (max-width: 460px) {
+      .sidebar { grid-template-columns: 1fr 1fr; }
+      .menu { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .grid, .card-grid, .popular-grid { grid-template-columns: 1fr; }
+      .asset-name { font-size: 18px; min-height: 0; }
+      .top-actions { justify-content: flex-start; }
     }
   </style>
 </head>
 <body>
   <div class="wrap">
     <div class="layout">
-      <aside class="panel sidebar">
-        <div class="logo-pill">LYVA MENU</div>
+      <aside class="sidebar">
+        <div class="logo-pill">LY</div>
         <div class="menu">
-          <button class="active" data-target="section-home">Home</button>
-          <button data-target="section-pc">Asset PC</button>
-          <button data-target="section-hp">Asset HP</button>
-          <button data-target="section-review">Review AI</button>
+          <button class="active" data-target="section-home" data-icon="H">Home</button>
+          <button data-target="section-pc" data-icon="T">Transaksi</button>
+          <button data-target="section-hp" data-icon="P">Promo</button>
+          <button data-target="section-review" data-icon="G">Hadiahku</button>
         </div>
       </aside>
 
       <main class="content">
-        <div class="panel topbar">
+        <div id="installStrip" class="install-strip">
+          <button id="closeInstallStrip" class="close" type="button">x</button>
+          <span>Top up cepat dengan instal aplikasi ${safeTitle} di komputer kamu</span>
+          <a class="btn small" href="${safePromo}" target="_blank" rel="noreferrer">Install</a>
+        </div>
+
+        <div class="topbar">
           <div class="brand-wrap">
             <div class="brand-mark">L</div>
             <div>${safeTitle}</div>
           </div>
           <div class="search-wrap">
             <input id="globalSearchInput" placeholder="Cari asset, key, atau fitur..." />
+            <span>o</span>
           </div>
           <div class="top-actions">
-            ${hasDiscord ? `<a class="btn small secondary" href="${safeDiscord}" target="_blank" rel="noreferrer">Discord</a>` : ""}
-            <a class="btn small" href="/dashboard">Masuk Dashboard</a>
+            ${hasDiscord ? `<a class="btn small secondary" href="${safeDiscord}" target="_blank" rel="noreferrer">Discord</a>` : `<span class="btn small secondary">ID</span>`}
+            <a class="btn small" href="/dashboard">Masuk</a>
           </div>
         </div>
 
-        <section class="panel section active" id="section-home">
+        <section class="section active" id="section-home">
           <div class="hero">
             <div class="hero-banner">
-              <div>
-                <div class="hero-badge">Fokus Free Asset + Review AI</div>
-                <h1>Free Asset Roblox<br/>dan AI Review</h1>
-                <p>Koleksi asset gratis untuk PC/HP, plus fitur analisis script AI biar coding kamu lebih aman dan rapi.</p>
-                <div class="row" style="margin-top:10px;">
-                  <button class="btn jump-tab" data-jump="section-pc">Lihat Asset PC</button>
-                  <button class="btn secondary jump-tab" data-jump="section-hp">Lihat Asset HP</button>
-                  <button class="btn alt jump-tab" data-jump="section-review">Coba Review AI</button>
+              <article id="heroLeft" class="hero-slide side">
+                <div class="hero-copy">
+                  <div class="kicker" data-role="kicker"></div>
+                  <h3 data-role="title"></h3>
+                  <p data-role="meta"></p>
                 </div>
-              </div>
-              <div class="hero-side">
-                <div class="hero-card">
-                  <h3>Kenapa pakai LYVA?</h3>
-                  <p>- Download asset langsung dari web<br/>- Copy ID cepat untuk mobile<br/>- Review AI + rule check untuk script Roblox</p>
+              </article>
+              <article id="heroMain" class="hero-slide main">
+                <div class="hero-copy">
+                  <div class="kicker" data-role="kicker"></div>
+                  <h2 data-role="title"></h2>
+                  <p data-role="meta"></p>
+                  <a href="#" class="hero-btn" data-role="action">Lihat Sekarang</a>
                 </div>
-              </div>
+              </article>
+              <article id="heroRight" class="hero-slide side">
+                <div class="hero-copy">
+                  <div class="kicker" data-role="kicker"></div>
+                  <h3 data-role="title"></h3>
+                  <p data-role="meta"></p>
+                </div>
+              </article>
             </div>
-            <div class="title">${safeTitle}</div>
-            <div class="sub">Etalase digital ala marketplace: pilih kategori, lihat kartu produk, lalu download asset atau copy ID langsung.</div>
-            <div class="row">
-              <a class="btn" href="${safePromo}" target="_blank" rel="noreferrer">Promo LYVA</a>
-              ${hasDiscord ? `<a class="btn secondary" href="${safeDiscord}" target="_blank" rel="noreferrer">Masuk Discord</a>` : ""}
-              <a class="btn alt" href="/dashboard">Admin Dashboard</a>
-            </div>
+            <div id="heroDots" class="hero-dots"></div>
             <div class="grid" id="statGrid"></div>
           </div>
-          <div class="features">
-            <div class="feature">
-              <h3>Review Script Roblox</h3>
-              <p>Pakai command /review paste atau /review ai, hasil review fokus security, performa, dan patch.</p>
-            </div>
-            <div class="feature">
-              <h3>Free Asset Download</h3>
-              <p>File .rbxm/.lua bisa di-download langsung dari web. Tiap asset tampil bentuk card + foto/thumbnail fitur.</p>
-            </div>
-            <div class="feature">
-              <h3>Studio Lite ID</h3>
-              <p>Asset HP dipisah ke halaman sendiri, lengkap dengan ID dan tombol copy cepat.</p>
-            </div>
-          </div>
+          <div id="categoryPills" class="category-pills"></div>
+          <div class="title">Lagi Populer</div>
+          <div id="popularGrid" class="popular-grid"></div>
         </section>
 
-        <section class="panel section" id="section-pc">
+        <section class="section" id="section-pc">
           <div class="catalog">
             <input id="searchPcInput" class="search" placeholder="Cari asset PC..." />
             <div id="pcGrid" class="card-grid"></div>
           </div>
         </section>
 
-        <section class="panel section" id="section-hp">
+        <section class="section" id="section-hp">
           <div class="catalog">
             <input id="searchHpInput" class="search" placeholder="Cari asset HP / studio lite..." />
             <div id="hpGrid" class="card-grid"></div>
           </div>
         </section>
 
-        <section class="panel section" id="section-review">
+        <section class="section" id="section-review">
           <div class="review-grid">
             <div class="card">
               <h4>Cara Review Script</h4>
@@ -1536,16 +1749,32 @@ function buildMemberPage({ title = MEMBER_PAGE_TITLE, promoUrl = MEMBER_PROMO_UR
 
   <script>
     const statGrid = document.getElementById("statGrid");
+    const popularGrid = document.getElementById("popularGrid");
+    const categoryPills = document.getElementById("categoryPills");
     const pcGrid = document.getElementById("pcGrid");
     const hpGrid = document.getElementById("hpGrid");
     const searchPcInput = document.getElementById("searchPcInput");
     const searchHpInput = document.getElementById("searchHpInput");
     const globalSearchInput = document.getElementById("globalSearchInput");
+    const installStrip = document.getElementById("installStrip");
+    const closeInstallStrip = document.getElementById("closeInstallStrip");
+    const heroLeft = document.getElementById("heroLeft");
+    const heroMain = document.getElementById("heroMain");
+    const heroRight = document.getElementById("heroRight");
+    const heroDots = document.getElementById("heroDots");
     const menuButtons = Array.from(document.querySelectorAll(".menu button"));
-    const jumpButtons = Array.from(document.querySelectorAll(".jump-tab"));
     const sections = Array.from(document.querySelectorAll(".section"));
+    const categories = [
+      { id: "all", label: "Lagi Populer" },
+      { id: "pc", label: "Top Up Langsung" },
+      { id: "hp", label: "Baru Rilis" },
+      { id: "studio", label: "Top Up Login" },
+      { id: "script", label: "Voucher" },
+      { id: "model", label: "Pulsa" },
+      { id: "misc", label: "Entertainment" },
+    ];
 
-    let state = { pcAssets: [], hpAssets: [], summary: {} };
+    let state = { pcAssets: [], hpAssets: [], summary: {}, activeCategory: "all", heroItems: [], slideIndex: 0, slideTimer: null };
 
     function stat(label, value) {
       const el = document.createElement("div");
@@ -1571,10 +1800,62 @@ function buildMemberPage({ title = MEMBER_PAGE_TITLE, promoUrl = MEMBER_PROMO_UR
         '<stop offset="100%" stop-color="hsl(' + ((hue + 48) % 360) + ',70%,38%)"/>' +
         '</linearGradient></defs>' +
         '<rect width="640" height="360" fill="url(#g)"/>' +
-        '<text x="32" y="188" fill="#fff" font-size="34" font-family="Nunito,Segoe UI,sans-serif" font-weight="800">' +
+        '<text x="32" y="188" fill="#fff" font-size="34" font-family="Chakra Petch,Sora,sans-serif" font-weight="700">' +
         text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;") +
         "</text></svg>";
       return "data:image/svg+xml;utf8," + encodeURIComponent(svg);
+    }
+
+    function normalize(text) {
+      return String(text || "").trim().toLowerCase();
+    }
+
+    function toPcPopular(item) {
+      return {
+        source: "pc",
+        title: item.baseName || item.fileName || "Asset PC",
+        meta: "Type: " + (item.type || "-") + " | Size: " + (item.sizeLabel || "-"),
+        imageUrl: item.imageUrl || "",
+        href: item.downloadUrl || "#",
+        copyId: "",
+        ext: item.ext || "",
+        type: item.type || "",
+        kind: "",
+      };
+    }
+
+    function toHpPopular(item) {
+      return {
+        source: "hp",
+        title: item.name || "Asset HP",
+        meta: "ID: " + (item.id || "-") + " | Kind: " + (item.kind || "-"),
+        imageUrl: item.imageUrl || "",
+        href: "#",
+        copyId: item.id || "",
+        ext: "",
+        type: "",
+        kind: item.kind || "",
+      };
+    }
+
+    function allPopularItems() {
+      return state.pcAssets.map(toPcPopular).concat(state.hpAssets.map(toHpPopular));
+    }
+
+    function matchCategory(item, categoryId) {
+      if (categoryId === "pc") return item.source === "pc";
+      if (categoryId === "hp") return item.source === "hp";
+      if (categoryId === "studio") return item.source === "hp" && normalize(item.kind) === "studio-lite";
+      if (categoryId === "script") return normalize(item.type).includes("script") || normalize(item.ext).includes("lua");
+      if (categoryId === "model") return normalize(item.ext).includes("rbxm");
+      if (categoryId === "misc") return !normalize(item.ext).includes("rbxm") && !normalize(item.ext).includes("lua");
+      return true;
+    }
+
+    function matchSearch(item, query) {
+      if (!query) return true;
+      const blob = String(item.title || "") + " " + String(item.meta || "") + " " + String(item.type || "") + " " + String(item.kind || "");
+      return normalize(blob).includes(query);
     }
 
     function createEl(tag, className, text) {
@@ -1633,6 +1914,121 @@ function buildMemberPage({ title = MEMBER_PAGE_TITLE, promoUrl = MEMBER_PROMO_UR
       return card;
     }
 
+    function createPopularCard(item) {
+      const card = createEl("article", "asset-card");
+      const img = createEl("img", "thumb");
+      img.loading = "lazy";
+      img.src = item.imageUrl || fallbackThumb(item.title || "Asset", item.source === "hp" ? 145 : 215);
+      img.alt = item.title || "Asset";
+      img.onerror = () => {
+        img.src = fallbackThumb(item.title || "Asset", item.source === "hp" ? 145 : 215);
+      };
+
+      const body = createEl("div", "asset-body");
+      body.appendChild(createEl("div", "asset-name", item.title || "Unnamed Asset"));
+      body.appendChild(createEl("div", "asset-meta", item.meta || "-"));
+      const actions = createEl("div", "asset-actions");
+      if (item.copyId) {
+        const copyBtn = createEl("button", "btn small copy", "Copy ID");
+        copyBtn.type = "button";
+        copyBtn.dataset.copyId = item.copyId;
+        actions.appendChild(copyBtn);
+      } else {
+        const download = createEl("a", "btn small", "Download");
+        download.href = item.href || "#";
+        actions.appendChild(download);
+      }
+      body.appendChild(actions);
+      card.appendChild(img);
+      card.appendChild(body);
+      return card;
+    }
+
+    function renderCategoryPills() {
+      categoryPills.innerHTML = "";
+      categories.forEach((item) => {
+        const pill = createEl("button", "cat-pill" + (state.activeCategory === item.id ? " active" : ""), item.label);
+        pill.type = "button";
+        pill.addEventListener("click", () => {
+          state.activeCategory = item.id;
+          renderCategoryPills();
+          renderPopularGrid();
+        });
+        categoryPills.appendChild(pill);
+      });
+    }
+
+    function renderPopularGrid() {
+      const q = normalize(globalSearchInput?.value || "");
+      const list = allPopularItems().filter((item) => matchCategory(item, state.activeCategory) && matchSearch(item, q));
+      popularGrid.innerHTML = "";
+      if (list.length === 0) {
+        popularGrid.appendChild(createEl("div", "empty", "Belum ada item populer."));
+        return;
+      }
+      list.slice(0, 20).forEach((item) => popularGrid.appendChild(createPopularCard(item)));
+    }
+
+    function setHeroCard(el, item, center) {
+      if (!el || !item) return;
+      const bg = item.imageUrl || fallbackThumb(item.title || "LYVA", center ? 226 : 205);
+      el.style.backgroundImage = "url('" + bg + "')";
+      const kicker = el.querySelector('[data-role="kicker"]');
+      const title = el.querySelector('[data-role="title"]');
+      const meta = el.querySelector('[data-role="meta"]');
+      if (kicker) kicker.textContent = item.source === "hp" ? "mobile id" : "asset pc";
+      if (title) title.textContent = item.title || "Untitled";
+      if (meta) meta.textContent = item.meta || "";
+      if (center) {
+        const action = el.querySelector('[data-role="action"]');
+        if (!action) return;
+        if (item.copyId) {
+          action.href = "#";
+          action.dataset.copyId = item.copyId;
+          action.textContent = "Copy ID";
+        } else {
+          action.href = item.href || "#";
+          action.removeAttribute("data-copy-id");
+          action.textContent = "Download";
+        }
+      }
+    }
+
+    function renderHeroDots() {
+      heroDots.innerHTML = "";
+      state.heroItems.forEach((_, idx) => {
+        const dot = createEl("button", "hero-dot" + (idx === state.slideIndex ? " active" : ""));
+        dot.type = "button";
+        dot.addEventListener("click", () => {
+          state.slideIndex = idx;
+          renderHero();
+          startHeroSlider();
+        });
+        heroDots.appendChild(dot);
+      });
+    }
+
+    function renderHero() {
+      if (!state.heroItems.length) return;
+      const total = state.heroItems.length;
+      const current = ((state.slideIndex % total) + total) % total;
+      const left = (current - 1 + total) % total;
+      const right = (current + 1) % total;
+      setHeroCard(heroLeft, state.heroItems[left], false);
+      setHeroCard(heroMain, state.heroItems[current], true);
+      setHeroCard(heroRight, state.heroItems[right], false);
+      renderHeroDots();
+    }
+
+    function startHeroSlider() {
+      if (state.slideTimer) clearInterval(state.slideTimer);
+      state.slideTimer = setInterval(() => {
+        if (!state.heroItems.length) return;
+        state.slideIndex = (state.slideIndex + 1) % state.heroItems.length;
+        renderHero();
+      }, 4300);
+    }
+
     function renderPcAssets() {
       const qLocal = String(searchPcInput.value || "").trim().toLowerCase();
       const qGlobal = String(globalSearchInput?.value || "").trim().toLowerCase();
@@ -1677,9 +2073,26 @@ function buildMemberPage({ title = MEMBER_PAGE_TITLE, promoUrl = MEMBER_PROMO_UR
       state.pcAssets = Array.isArray(data.pcAssets) ? data.pcAssets : [];
       state.hpAssets = Array.isArray(data.hpAssets) ? data.hpAssets : [];
       state.summary = data.summary || {};
+      state.heroItems = allPopularItems().slice(0, 8);
+      if (!state.heroItems.length) {
+        state.heroItems = [
+          {
+            source: "pc",
+            title: "Special Discount",
+            meta: "Katalog lagi kosong",
+            imageUrl: "",
+            href: "#",
+            copyId: "",
+          },
+        ];
+      }
       renderStats();
+      renderCategoryPills();
+      renderPopularGrid();
       renderPcAssets();
       renderHpAssets();
+      renderHero();
+      startHeroSlider();
     }
 
     function setSection(sectionId) {
@@ -1695,14 +2108,15 @@ function buildMemberPage({ title = MEMBER_PAGE_TITLE, promoUrl = MEMBER_PROMO_UR
     menuButtons.forEach((btn) => {
       btn.addEventListener("click", () => setSection(btn.dataset.target));
     });
-    jumpButtons.forEach((btn) => {
-      btn.addEventListener("click", () => setSection(btn.dataset.jump));
-    });
     searchPcInput.addEventListener("input", renderPcAssets);
     searchHpInput.addEventListener("input", renderHpAssets);
     globalSearchInput?.addEventListener("input", () => {
+      renderPopularGrid();
       renderPcAssets();
       renderHpAssets();
+    });
+    closeInstallStrip?.addEventListener("click", () => {
+      installStrip?.classList.add("hide");
     });
     document.addEventListener("click", async (event) => {
       const target = event.target.closest("[data-copy-id]");
@@ -1731,6 +2145,7 @@ function buildMemberPage({ title = MEMBER_PAGE_TITLE, promoUrl = MEMBER_PROMO_UR
       }
     });
     loadCatalog().catch(() => {
+      popularGrid.innerHTML = '<div class="empty">Gagal load katalog.</div>';
       pcGrid.innerHTML = '<div class="empty">Gagal load asset PC.</div>';
       hpGrid.innerHTML = '<div class="empty">Gagal load asset HP.</div>';
     });
